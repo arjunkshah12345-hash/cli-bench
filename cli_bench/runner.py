@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -9,7 +10,6 @@ import platform
 import shutil
 import subprocess
 import sys
-import contextlib
 import tempfile
 import threading
 import time
@@ -62,6 +62,8 @@ class TaskRunResult:
     verifier_ok: bool | None
     verifier_log: str
     artifact_dir: Path
+    requested_model: str = ""
+    effective_model: str | None = None  # None = harness does not report a model id
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -75,6 +77,8 @@ class TaskRunResult:
             "usage_estimated": self.usage_estimated,
             "cost_usd": self.cost_usd,
             "verifier_ok": self.verifier_ok,
+            "requested_model": self.requested_model,
+            "effective_model": self.effective_model,
             "artifact_dir": self.artifact_dir.name,
         }
 
@@ -331,6 +335,8 @@ def run_task(
             verifier_ok = False
             verifier_log = sabotage or "sabotage"
 
+        effective_model = harness.effective_model(transcript)
+
         result = TaskRunResult(
             harness=harness.name,
             task_id=task.id,
@@ -344,13 +350,14 @@ def run_task(
             verifier_ok=verifier_ok,
             verifier_log=verifier_log,
             artifact_dir=art,
+            requested_model=model,
+            effective_model=effective_model,
         )
         (art / "result.json").write_text(json.dumps(result.to_dict(), indent=2), encoding="utf-8")
         (art / "verifier.log").write_text(verifier_log, encoding="utf-8")
         return result
     finally:
         shutil.rmtree(trial_dir, ignore_errors=True)
-
 
 
 def _aggregate(

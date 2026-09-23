@@ -195,18 +195,19 @@
 <header class="hero">
   <div class="wrap">
     <h1>Measure the harness,<br><span class="dim">not the scaffolding luck.</span></h1>
-    <p class="lede">Agent harnesses — Cursor Agent, Codex, OpenCode, Droid, Claude Code, Aider — all claim to drive the same models. CLI-Bench holds everything constant except the harness: one model, identical tasks, identical budgets, a deterministic verifier, and anti-gaming probes.</p>
+    <p class="lede">Agent harnesses — Cursor Agent, Codex, OpenCode, Droid, Claude Code, Aider — all claim to drive the same models. CLI-Bench holds everything constant except the harness: model-compatible cohorts, identical tasks, identical budgets, a deterministic verifier, and anti-gaming probes.</p>
     <div class="hero-actions">
       <a class="btn btn-primary" href="#quickstart">Run it locally</a>
       <a class="btn" href="https://github.com/arjunkshah12345-hash/cli-bench" target="_blank" rel="noopener">Read the spec →</a>
     </div>
     <div class="terminal">
       <div class="bar"><i></i><i></i><i></i></div>
-      <pre><span class="c-dim">$</span> pip install cli-bench
-<span class="c-dim">$</span> cbench run --harness codex --harness opencode --model claude-sonnet-4-5
-<span class="c-dim">run</span>  <span class="c-accent">32 trials</span> · 12 tasks + 4 houdini probes · seeds ×2 · budget $0.40/task
+      <pre><span class="c-dim">$</span> git clone https://github.com/arjunkshah12345-hash/cli-bench && cd cli-bench
+<span class="c-dim">$</span> pip install -e . && cbench list
+<span class="c-dim">$</span> cbench run --harness codex --model openai/gpt-5.3 --seeds 3
+<span class="c-dim">run</span>  <span class="c-accent">36 trials</span> · 12 tasks + 4 houdini probes · seeds ×3 · budget enforced
 <span class="c-dim">verify</span>  deterministic verifiers · sabotage checks · pristine copies
-<span class="c-ok">✓</span> scored  →  <span class="c-accent">CB-HDR 0.847</span>  HDR-C 0.912  29/32 pass  $3.11 spent  41.2 min</pre>
+<span class="c-ok">✓</span> scored  →  <span class="c-accent">CB-HDR 0.847</span>  HDR-C 0.912  29/36 pass  $3.11 spent  41.2 min</pre>
     </div>
   </div>
 </header>
@@ -215,9 +216,9 @@
   <div class="wrap">
     <div class="kicker">The problem</div>
     <h2>Model benchmarks can't see the agent.</h2>
-    <p class="sub">SWE-bench, Terminal-Bench, and HAL established that <em>the same model scores wildly differently across harnesses</em> — but each either fixes the harness or treats it as a nuisance variable. There is no benchmark whose <em>subject under test</em> is the harness itself.</p>
+    <p class="sub">SWE-bench, Terminal-Bench, and HAL established that <em>the same model scores wildly differently across harnesses</em> — but each either fixes the harness or treats it as a nuisance variable. CLI-Bench makes the harness the <em>subject under test</em>: related work like <a class="mono" style="text-decoration:underline" href="https://github.com/reacher-z/HarnessBench" target="_blank" rel="noopener">HarnessBench</a> and A-Code Bench shares the instinct; CLI-Bench focuses narrowly on coding-agent CLIs with deterministic per-task verification, seeded instances, and anti-gaming probes.</p>
     <div class="grid-3">
-      <div class="card"><span class="tag">ceteris paribus</span><h3>Everything held constant</h3><p>Same model, same task prompt, same shell, same time and token budget, same verifier. The harness is the only independent variable.</p></div>
+      <div class="card"><span class="tag">ceteris paribus</span><h3>Everything held constant</h3><p>Same model per cohort, same task prompt, same shell, same time and token budget, same verifier. The harness is the only independent variable — and the model the CLI actually ran is verified against the request.</p></div>
       <div class="card"><span class="tag">determinism</span><h3>No LLM-judged anything</h3><p>Verifiers are plain scripts: exit 0 means pass. Every score is reproducible from a committed manifest — no vibes, no judge drift.</p></div>
       <div class="card"><span class="tag">anti-gaming</span><h3>Houdini probes</h3><p>Four trap tasks detect test mutation, verifier editing, spec hallucination, and peeking at hidden files. Caught gaming and the run is flagged, not ranked.</p></div>
     </div>
@@ -228,15 +229,15 @@
   <div class="wrap">
     <div class="kicker">The score</div>
     <h2>CB-HDR — correctness, priced honestly.</h2>
-    <p class="sub">Hard-blocking first: a task that fails scores zero, no matter how fast or cheap. Passing runs are then discounted by cost, latency, and churn — with cache reads priced at 0.1×</p>
+    <p class="sub">Hard-blocking first: a task that fails scores zero, no matter how fast or cheap. Passing runs earn <strong>full credit up to 5× the passer-median token spend</strong> — a deliberate noise-tolerance band — then decay linearly. Latency and diff churn are published as separate columns, never folded into the headline.</p>
     <div class="formula">
-      <span class="k">CB-HDR</span>(t) = 1[pass] · (<span class="k">env</span> × <span class="k">τ</span>(latency) × <span class="k">β</span>(cost) × <span class="k">χ</span>(churn))<br>
-      <span style="color:var(--fg-3)">env = 1 − 0.05 · envelope_breaches&nbsp;&nbsp;·&nbsp;&nbsp;τ = p50 / max(latency, p50)&nbsp;&nbsp;·&nbsp;&nbsp;β = min(cost, 5·p50) / (5·p50)&nbsp;&nbsp;·&nbsp;&nbsp;χ = 1 − min(diff, 3·p50) / (3·p50)</span>
+      <span class="k">CB-HDR</span> = Σ<sub>t</sub> 1[pass] · w(t) · <span class="k">B</span>(t) / Σ<sub>t</sub> w(t)<br>
+      <span style="color:var(--fg-3)">B(t) = min(1, 5·p50<sub>pass</sub> / spend)&nbsp;&nbsp;→&nbsp;&nbsp;≤5× median = 1.0&nbsp;&nbsp;·&nbsp;&nbsp;10× = 0.5&nbsp;&nbsp;·&nbsp;&nbsp;25× = 0.2&nbsp;&nbsp;·&nbsp;&nbsp;cache reads count at 0.1×</span>
     </div>
     <div class="score-cols">
-      <div class="card"><span class="tag">β · cost</span><h3>Token & dollar brake</h3><p>Native per-turn usage when the harness reports it; transcript estimation only as a labeled fallback. Overspend past 5× the cohort p50 and your pass decays linearly.</p></div>
-      <div class="card"><span class="tag">τ · latency</span><h3>Wall-clock brake</h3><p>A pass that took 10 minutes counts less than the same pass in 4. Under the p50 you lose nothing.</p></div>
-      <div class="card"><span class="tag">χ · churn</span><h3>Diff brake</h3><p>Line churn beyond 3× the cohort median is penalized — reward for surgical agents, not shotgun rewrites.</p></div>
+      <div class="card"><span class="tag">β · cost</span><h3>Token & dollar brake</h3><p>Native per-turn usage when the harness reports it; transcript estimation only as a labeled fallback. Overspend past 5× the passer p50 and your pass decays linearly — the task's dollar budget tightens the band further.</p></div>
+      <div class="card"><span class="tag">τ · latency</span><h3>Wall clock, published</h3><p>A pass that took 10 minutes is not hidden: p50 latency is a first-class column on every leaderboard, it just never silently multiplies the headline score.</p></div>
+      <div class="card"><span class="tag">χ · churn</span><h3>Diff churn, published</h3><p>Lines touched are reported per task — surgical agents are visible without an invented churn constant in the score.</p></div>
     </div>
     <div class="grid-3" style="margin-top:16px">
       <div class="card"><span class="tag">HDR-C</span><h3>Capability, unbraked</h3><p>The same weighted score with β, τ, χ disabled — the raw "can it solve it at all" view. Published next to CB-HDR so efficiency and capability never blur.</p></div>
@@ -251,11 +252,11 @@
     <div class="kicker">Leaderboard</div>
     <h2>One table. No asterisks.</h2>
     <p class="sub">Submit a run manifest from your own machine; the site renders what the community measured. Every row links its raw artifacts.</p>
-    <div class="lb-note"><span>⚠︎</span><span><strong>Illustrative sample below</strong> — structure shown, not measured results. No numbers on this page are benchmark data. Run <span class="mono">cbench run</span> to produce real ones and open a PR with your manifest.</span></div>
+    <div class="lb-note"><span>⚠︎</span><span><strong>Illustrative sample below</strong> — structure shown, not measured results. No numbers on this page are benchmark data; this is a benchmark framework at v0.9, not a results announcement. Run <span class="mono">cbench run</span> to produce real ones.</span></div>
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>#</th><th>Harness</th><th>Profile</th><th>CB-HDR ↑</th><th>95% CI</th><th>HDR-C ↑</th><th>Pass rate</th><th>$/task</th><th>p50 latency</th><th>Gaming flags</th></tr>
+          <tr><th>#</th><th>Harness</th><th>Profile</th><th>CB-HDR ↑</th><th>95% CI</th><th>HDR-C ↑</th><th>HDR</th><th>Pass rate</th><th>$/task</th><th>p50 latency</th><th>Gaming flags</th></tr>
         </thead>
         <tbody>
           <tr class="rank-1"><td class="num">1</td><td class="mono">harness-a</td><td><span class="pill">guarded</span></td><td class="num bar-cell"><div class="bar-track"><div class="bar-fill" style="width:86%"></div></div>&nbsp;0.861</td><td class="num">±0.021</td><td class="num">0.902</td><td class="num">83%</td><td class="num">$0.27</td><td class="num">6m 12s</td><td class="num">0</td></tr>
@@ -322,17 +323,18 @@ cbench run --harness mock-a --model mock/gpt-5.3 --seeds 1</pre>
       </div>
       <div class="terminal">
         <div class="bar"><i></i><i></i><i></i></div>
-        <pre class="codeblock"><span class="c-dim"># 4. the real thing</span>
+        <pre class="codeblock"><span class="c-dim"># 4. the real thing (model-compatible cohort)</span>
 cbench run \
-  --harness codex --harness opencode \
-  --model claude-sonnet-4-5 \
-  --seeds 2
+  --harness opencode --harness aider \
+  --model openai/gpt-5.3 \
+  --seeds 3
 
 <span class="c-dim"># 5. score + report</span>
 cbench score runs/&lt;run-dir&gt;
 cbench report runs/&lt;run-dir&gt; --out report.html
 
-<span class="c-dim"># share it: open a PR with your manifest</span>
+<span class="c-dim"># out-of-cohort pairings are refused unless you pass</span>
+<span class="c-dim"># --allow-incompatible (recorded in the manifest)</span>
 <span class="c-dim"># (artifacts included, results reproducible)</span></pre>
       </div>
     </div>

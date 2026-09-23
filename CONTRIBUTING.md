@@ -27,6 +27,8 @@ cbench list        # suite loads
 - CI runs: ruff, mypy (non-blocking), pytest, a mock end-to-end run, and verifier self-checks on the full suite.
 - Score-affecting changes additionally require a reproduction run proving no published entry re-ranks beyond its CI width.
 
+> **Note:** there is no submission-verification CI or maintainer-approval tooling yet — the governance workflow above describes the intended policy (SPEC §10). Code CI (tests/lint/types) runs on every push.
+
 ## Reporting gaming
 
 If you find a way to cheat a task (verifier hole, seed leakage, prompt ambiguity), open a **security-style advisory** (or email the maintainers) rather than a public issue. Confirmed gaming retires the task and credits the reporter in the changelog.

@@ -103,9 +103,9 @@ def p50_spend(trials: list[Trial], task_id: str) -> float:
 def brake(spend: int, p50: float, budget_tokens: float | None = None) -> float:
     """B = min(1, (5·p50, clamped down to the task budget if present) / spend).
 
-    Full credit at or below the passer median; smooth decay to ~0.2 at 10x
-    median. A budget ceiling (if computable) tightens the saturation point but
-    never below p50 itself.
+    Full credit at or below 5× the passer median (saturating band); linear
+    decay beyond it: 10× median → 0.5, 25× median → 0.2. A budget ceiling
+    (if computable) tightens the saturation point but never below p50 itself.
     """
     if spend <= 0:
         return 0.0

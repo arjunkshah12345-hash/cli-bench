@@ -32,7 +32,7 @@ def test_get_harness_unknown_raises_with_known_list():
     assert "codex" in str(exc.value)
 
 
-def _ctx(task_id="refactor/deadcode", seed=0, budget=600):
+def _ctx(task_id="refactor/deadcode", seed=0, budget=600, model="openai/gpt-5.3"):
     task = Task(
         id=task_id,
         title="t",
@@ -50,9 +50,38 @@ def _ctx(task_id="refactor/deadcode", seed=0, budget=600):
         workspace=None,
         prompt_file="/tmp/prompt.txt",
         time_budget_s=budget,
-        model="openai/gpt-5.3",
+        model=model,
         env_vars={},
     )
+
+
+def test_model_pinning_passed_to_cli():
+    """Every real adapter must include a model flag in its built command."""
+    for name in ("codex", "claude-code", "opencode", "cursor-agent", "droid", "gemini", "aider", "goose"):
+        h = get_harness(name)
+        cmd = h.build_cmd(_ctx(model="openai/gpt-5.3"))
+        joined = " ".join(cmd)
+        assert "gpt-5.3" in joined, f"{name} does not pin the model: {joined}"
+
+
+def test_cohort_check_family_mismatch():
+    from cli_bench.harness import cohort_check
+
+    codex = get_harness("codex")  # openai-only
+    assert cohort_check(codex, "anthropic/claude-sonnet-4-5") is not None
+    assert cohort_check(codex, "openai/gpt-5.3") is None
+    aider = get_harness("aider")  # multi-provider
+    assert cohort_check(aider, "anthropic/claude-sonnet-4-5") is None
+
+
+def test_effective_model_capture():
+    h = get_harness("claude-code")
+    events = [
+        {"event": "turn", "usage": {}},
+        {"event": "final", "exit": 0, "model": "claude-sonnet-4-5"},
+    ]
+    assert h.effective_model(events) == "claude-sonnet-4-5"
+    assert h.effective_model([{"event": "turn"}]) is None
 
 
 def test_mock_build_cmd_shape():

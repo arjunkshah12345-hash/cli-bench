@@ -64,11 +64,22 @@ class CLIHarness(CommandHarness):
 
     def build_cmd(self, ctx: Any) -> list[str]:
         cmd = list(self.cmd_template)
+        # Model pinning: pass the requested model to every CLI that accepts a
+        # model flag (SPEC §5.5). The runner additionally hard-fails when a
+        # harness's native report contradicts the requested model.
+        if ctx.model:
+            provider, _, bare = ctx.model.rpartition("/")
+            bare = bare or provider  # "claude-sonnet-4-5" vs "anthropic/claude-sonnet-4-5"
+            cmd.extend(self.model_flags(bare, ctx.model))
         if self.prompt_mode == "argv":
             cmd.append(self.prompt_text(ctx.task))
         elif self.prompt_mode == "flag":
             cmd.extend([self.prompt_flag, self.prompt_text(ctx.task)])
         return cmd
+
+    def model_flags(self, bare: str, full: str) -> list[str]:
+        """Default: standard -m/--model flag. Override for exotic CLIs."""
+        return ["-m", bare]
 
     def available(self) -> bool:
         if not shutil.which(self.binary):
@@ -151,9 +162,13 @@ class ClaudeCode(CLIHarness):
         transcript_fidelity="native",
         backends=["local", "docker"],
         auth_env=["ANTHROPIC_API_KEY"],
-        notes="headless print mode; stream-json events parsed natively",
+        model_families=["anthropic"],
+        notes="headless print mode; stream-json events parsed natively; model via --model",
     )
     missing_hint = "npm i -g @anthropic-ai/claude-code"
+
+    def model_flags(self, bare: str, full: str) -> list[str]:
+        return ["--model", bare]
 
     def build_cmd(self, ctx: Any) -> list[str]:
         cmd = super().build_cmd(ctx)
@@ -186,7 +201,14 @@ class ClaudeCode(CLIHarness):
                 }
             return ev
         if etype == "result":
-            return {"ts": None, "event": "final", "exit": 0 if obj.get("is_error") is False else 1}
+            ev = {"ts": None, "event": "final", "exit": 0 if obj.get("is_error") is False else 1}
+            if obj.get("modelUsage"):
+                first = next(iter(obj["modelUsage"].values()), {})
+                if first.get("model"):
+                    ev["model"] = str(first["model"])
+            elif obj.get("model"):
+                ev["model"] = str(obj["model"])
+            return ev
         return None
 
 
@@ -202,9 +224,14 @@ class Codex(CLIHarness):
         transcript_fidelity="native",
         backends=["local", "docker"],
         auth_env=["OPENAI_API_KEY"],
-        notes="codex exec; experimental JSON events parsed when stable",
+        model_families=["openai"],
+        notes="codex exec; experimental JSON events parsed when stable; model via -m/--model",
     )
     missing_hint = "npm i -g @openai/codex"
+
+    def model_flags(self, bare: str, full: str) -> list[str]:
+        # codex exec -m <model>; -c model=... is the fallback for older builds.
+        return ["-m", full]
 
     def parse_native(self, obj: dict[str, Any]) -> dict[str, Any] | None:
         # codex exec --json emits {"id","msg":{"type":"agent_message"|...}}
@@ -249,9 +276,14 @@ class OpenCode(CLIHarness):
         transcript_fidelity="stdout",
         backends=["local", "docker"],
         auth_env=[],  # provider keys read from opencode auth config
-        notes="opencode run; provider auth via `opencode auth login`",
+        model_families=[],  # multi-provider
+        notes="opencode run; multi-provider; model via -m provider/model",
     )
     missing_hint = "npm i -g opencode-ai"
+
+    def model_flags(self, bare: str, full: str) -> list[str]:
+        # opencode wants provider/model form.
+        return ["-m", full]
 
 
 class CursorAgent(CLIHarness):
@@ -266,9 +298,13 @@ class CursorAgent(CLIHarness):
         transcript_fidelity="stdout",
         backends=["local", "docker"],
         auth_env=["CURSOR_API_KEY"],
-        notes="headless print mode; --force auto-approves edits/commands",
+        model_families=[],  # multi-provider
+        notes="headless print mode; --force auto-approves; model via --model",
     )
     missing_hint = "curl cursor.com/install"
+
+    def model_flags(self, bare: str, full: str) -> list[str]:
+        return ["--model", full]
 
 
 class Droid(CLIHarness):
@@ -283,9 +319,13 @@ class Droid(CLIHarness):
         transcript_fidelity="stdout",
         backends=["local", "docker"],
         auth_env=["FACTORY_API_KEY"],
-        notes="factory droid exec; full-auto approval level",
+        model_families=[],  # multi-provider
+        notes="factory droid exec; full-auto approval; model via -m/--model",
     )
     missing_hint = "curl -fsSL https://app.factory.ai/cli | sh"
+
+    def model_flags(self, bare: str, full: str) -> list[str]:
+        return ["-m", full]
 
 
 class GeminiCli(CLIHarness):
@@ -300,9 +340,13 @@ class GeminiCli(CLIHarness):
         transcript_fidelity="stdout",
         backends=["local", "docker"],
         auth_env=["GEMINI_API_KEY"],
-        notes="non-interactive print mode; --yolo auto-approves tools",
+        model_families=["google"],
+        notes="non-interactive print mode; --yolo auto-approves; model via -m/--model",
     )
     missing_hint = "npm i -g @google/gemini-cli"
+
+    def model_flags(self, bare: str, full: str) -> list[str]:
+        return ["-m", bare]
 
 
 class Aider(CLIHarness):
@@ -316,17 +360,22 @@ class Aider(CLIHarness):
         "--no-git",
         "--no-pretty",
         "--no-stream",
-        "--message",
     ]
+    prompt_flag = "--message"
+    prompt_mode = "flag"
     profile = HarnessProfile(
         approval_flags=["--yes-always"],
         plan_first=False,
         transcript_fidelity="stdout",
         backends=["local", "docker"],
         auth_env=["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],  # one of, per --model
-        notes="pair-programmer mode; message passed via --message",
+        model_families=[],  # multi-provider
+        notes="pair-programmer mode; multi-provider; model via --model",
     )
     missing_hint = "python -m pip install aider-install && aider-install"
+
+    def model_flags(self, bare: str, full: str) -> list[str]:
+        return ["--model", full]
 
 
 class Goose(CLIHarness):
@@ -341,9 +390,13 @@ class Goose(CLIHarness):
         transcript_fidelity="stdout",
         backends=["local", "docker"],
         auth_env=[],
-        notes="block/_square goose run; provider auth via goose configure",
+        model_families=[],  # multi-provider
+        notes="block/_square goose run; multi-provider; model via --model flag (GOOSE_MODEL fallback)",
     )
     missing_hint = "curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh | bash"
+
+    def model_flags(self, bare: str, full: str) -> list[str]:
+        return ["--model", full]
 
 
 ALL: list[type[CLIHarness]] = [

@@ -33,6 +33,7 @@ class HarnessProfile:
     transcript_fidelity: str = "stdout"  # "native" | "stdout"
     backends: list[str] = field(default_factory=lambda: ["local"])
     auth_env: list[str] = field(default_factory=list)
+    model_families: list[str] = field(default_factory=list)  # empty = multi-provider
     notes: str = ""
 
 
@@ -60,6 +61,21 @@ class Harness:
 
     def build_cmd(self, ctx: Any) -> list[str]:
         raise NotImplementedError
+
+    def effective_model(self, events: list[dict[str, Any]]) -> str | None:
+        """Extract the model the harness *actually* ran, when it reports one.
+
+        Adapters with native model ids (e.g. Claude Code's result.model_id)
+        surface them as events; the runner uses this to prove the requested
+        model was the effective one (SPEC §5.5). Returns None when unknown.
+        """
+        for ev in events:
+            if ev.get("event") == "final" and ev.get("model"):
+                return str(ev["model"])
+        for ev in events:
+            if ev.get("model"):
+                return str(ev["model"])
+        return None
 
     def prompt_text(self, task: Task) -> str:
         return task.prompt
@@ -103,6 +119,60 @@ class Harness:
 def estimate_text_usage(text: str) -> dict[str, int]:
     tokens = max(1, len(text) // 4)
     return {"input_tokens": tokens, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0}
+
+
+def model_family(model_id: str) -> str:
+    """Coarse provider family for cohort checks (SPEC §5.5).
+
+    Understands provider-prefixed ids ("openai/gpt-5.3") and bare ids
+    ("claude-sonnet-4-5", "gemini-2.5-pro").
+    """
+    m = (model_id or "").lower()
+    if "/" in m:
+        provider, _, bare = m.rpartition("/")
+        prefix_map = {
+            "anthropic": "anthropic",
+            "openai": "openai",
+            "google": "google",
+            "vertex_ai": "google",
+            "xai": "xai",
+            "deepseek": "other-open",
+            "moonshot": "other-open",
+            "kimi": "other-open",
+            "qwen": "other-open",
+            "glm": "other-open",
+            "zai": "other-open",
+            "mistral": "other-open",
+        }
+        if provider in prefix_map:
+            return prefix_map[provider]
+        m = bare
+    if m.startswith("claude"):
+        return "anthropic"
+    if m.startswith("gpt") or m.startswith("o1") or m.startswith("o3") or "codex" in m:
+        return "openai"
+    if m.startswith("gemini") or m.startswith("gemma"):
+        return "google"
+    if m.startswith("grok"):
+        return "xai"
+    if m.startswith("kimi") or m.startswith("deepseek") or m.startswith("qwen"):
+        return "other-open"
+    return "other"
+
+
+def cohort_check(harness: Harness, model_id: str) -> str | None:
+    """Return an error message if the harness cannot run this model family."""
+    families = getattr(harness.profile, "model_families", []) or []
+    if not families:
+        return None  # multi-provider harness: any model accepted
+    fam = model_family(model_id)
+    if fam not in families:
+        return (
+            f"harness {harness.name!r} runs model families {families}, not {fam!r}; "
+            f"{model_id!r} is out of cohort (use --allow-incompatible to override, "
+            "recorded in the manifest)"
+        )
+    return None
 
 
 # --- registry -----------------------------------------------------------------

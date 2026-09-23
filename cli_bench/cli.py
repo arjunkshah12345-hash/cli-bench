@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from cli_bench import __version__
-from cli_bench.harness import get_harness, registry
+from cli_bench.harness import cohort_check, get_harness, registry
 from cli_bench.report import write_report
 from cli_bench.runner import host_fingerprint, run_task
 from cli_bench.scoring import load_run_group, render_table, score_group
@@ -52,6 +52,16 @@ def cmd_run(args: argparse.Namespace) -> int:
         if not h.available():
             print(f"harness {name!r} is not available on this machine", file=sys.stderr)
             return 2
+        if not args.allow_incompatible:
+            err = cohort_check(h, args.model)
+            if err:
+                print(f"cohort error: {err}", file=sys.stderr)
+                return 2
+        else:
+            print(
+                f"warning: --allow-incompatible: {name} x {args.model} recorded in the manifest",
+                file=sys.stderr,
+            )
         harnesses.append(h)
 
     if args.backend == "docker":
@@ -82,6 +92,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             for t in tasks
         },
         "price_table": args.price_table,
+        "allow_incompatible": bool(args.allow_incompatible),
     }
     (run_dir / "run.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"run dir: {run_dir}")
@@ -100,8 +111,39 @@ def cmd_run(args: argparse.Namespace) -> int:
             futures = [pool.submit(_do_job, h, t, seed, run_dir, args) for h, t, seed in jobs]
             for f in as_completed(futures):
                 f.result()
+
+    _verify_effective_models(run_dir, args.model)
     print("done. Next: cbench score", run_dir)
     return 0
+
+
+def _verify_effective_models(run_dir: Path, requested: str) -> None:
+    """Hard-fail the run if a native-reporting harness ran a different model.
+
+    Harnesses that cannot report their effective model are recorded as null
+    (not failures) — but native reports that contradict the request abort the
+    batch, because the manifest would be a lie (SPEC §5.5).
+    """
+    offenders: list[str] = []
+    for path in sorted((run_dir / "runs").rglob("result.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        eff = data.get("effective_model")
+        if eff and requested and eff != requested:
+            offenders.append(
+                f"{data.get('harness')} {data.get('task_id')} s{data.get('seed')}: "
+                f"requested {requested!r} but harness ran {eff!r}"
+            )
+    if offenders:
+        print(
+            "MODEL MISMATCH — run aborted before scoring; fix the adapter's model pinning:",
+            file=sys.stderr,
+        )
+        for o in offenders[:20]:
+            print(f"  {o}", file=sys.stderr)
+        raise SystemExit(3)
 
 
 def _do_job(h, t, seed, run_dir, args) -> None:
@@ -147,13 +189,16 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument("--harness", action="append", required=True, help="harness name (repeatable)")
     p_run.add_argument("--model", default="openai/gpt-5.3", help="pinned model id")
     p_run.add_argument("--suite", default="suite")
-    p_run.add_argument("--suite-version", dest="suite_version", default="1.0.0")
+    p_run.add_argument("--suite-version", dest="suite_version", default="0.9.0")
     p_run.add_argument("--seeds", type=int, default=3)
     p_run.add_argument("--backend", choices=["local", "docker"], default="local")
     p_run.add_argument("--runs", default="runs", help="output root for run dirs")
     p_run.add_argument("--parallel", type=int, default=1)
     p_run.add_argument(
         "--price-table", default="1.0.0", help="pinned price table version for cost accounting"
+    )
+    p_run.add_argument(
+        "--allow-incompatible", action="store_true", help="skip model-cohort checks (recorded in manifest)"
     )
     p_run.add_argument("--only", action="append", help="restrict to task id (repeatable)")
     p_run.set_defaults(func=cmd_run)

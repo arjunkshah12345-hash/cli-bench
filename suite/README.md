@@ -1,4 +1,4 @@
-# Suite v1.0.0
+# Suite v0.9.0
 
 12 scored tasks + 4 Houdini anti-gaming probes. Layout per task:
 

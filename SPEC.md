@@ -1,10 +1,10 @@
-# CLI-Bench — Specification v1.0.0
+# CLI-Bench — Specification v0.9.0
 
 **An apples-to-apples benchmark for agent harnesses** (CLIs like Claude Code, Codex CLI, OpenCode, Cursor Agent, Droid Factory, Gemini CLI, Aider, Goose).
 
 CLI-Bench measures **the harness, not the model**. One model, many harnesses, identical task suite, identical verifiers, identical budget rules. The only variable is the code between the model and the terminal.
 
-**Version:** 1.0.0 · **Status:** Stable · **Repo:** github.com/arjunkshah12345-hash/cli-bench · **Site:** cli-bench.vercel.app
+**Version:** 0.9.0 · **Status:** Release candidate — see implementation-status notes in §5.2, §5.5, §10 · **Repo:** github.com/arjunkshah12345-hash/cli-bench · **Site:** cli-bench.vercel.app
 
 ---
 
@@ -89,28 +89,30 @@ Harnesses are run **headless/non-interactive** with a single task prompt (the sa
 
 ## 4. The metric system
 
-### 4.1 Primary score: CB-Score
+### 4.1 Primary score: CB-HDR
 
-CB-Score is the headline number. It is deliberately simple and cannot be gamed by trading money for time.
+CB-HDR is the headline number. It is deliberately simple and cannot be gamed by trading money for time.
 
 ```
-CB-Score_i  =  Σ_t  1[task t passed]  ·  R(t, i)  /  Σ_t  R(t, i)          (weight-normalized pass rate)
+CB-HDR_i  =  Σ_t  1[task t passed]  ·  R(t, i)  /  Σ_t  R(t, i)          (weight-normalized pass rate)
 
 R(t, i)     =  w_category(t) · w_difficulty(t) · B(t, i)
 
-B(t, i)     =  min(1, (b_ref(t) · p50) / b_i(t))       ∈ (0, 1]     — the efficiency brake
+B(t, i)     =  min(1, b_ref(t) / b_i(t))       ∈ (0, 1]     — the efficiency brake
 
 b_i(t)      =  actual resource spend by harness i on task t
 p50         =  median b across harnesses that passed t
-b_ref(t)    =  b at which the brake saturates: b_ref(t) = 5 × p50 (clamped to task budget)
+b_ref(t)    =  b at which the brake saturates: b_ref(t) = 5 × p50 (clamped to the task budget, never below p50)
 w_category  ∈ [0.75, 1.5]   (task category weight; spec table below)
 w_difficulty ∈ {1.0, 1.25, 1.5, 1.75}  for tiers {warmup, standard, hard, frontier}
 ```
 
-**The brake B.** A harness that passes a task after spending the median resources scores 1.0 on it. A harness that passes after spending 5× the median (or hits its budget) is *braked* toward zero credit — smoothly, not punitively: at 2× median it still earns ~0.5 of the task's weight, because resource spend is a continuum, and a 1.9× pass is real capability. The brake applies multiplicatively to the task weight so it can only pull a harness down, never up.
+**The brake B.** A harness that passes within the saturation band — spend ≤ 5× the passer median (or under the task budget, if computed) — earns **full credit**: the formula is `min(1, 5·p50 / spend)`, so at 2× median a pass still scores 1.0. Beyond 5× median the brake decays linearly: 10× median → 0.5, 25× median → 0.2. This is a deliberate tolerance band, not a reward for extravagance: a 1.9× pass is real capability and noise in that range should not reorder the leaderboard; the band only discounts *extraordinary* overspend. The brake multiplies the task weight so it can only pull a harness down, never up.
+
+The implemented CB-HDR is therefore a **token-braked weighted pass rate**. Latency and diff-churn are *published as separate columns*, never folded into the headline number — compositing them is deferred (§4.3) until real run data can justify the constants.
 
 - **b = tokens_total** by default (input + output, includes reasoning tokens; cache-read tokens count at a 0.1× discount since they are genuinely cheaper and cache friendliness is a real harness skill).
-- Alternatively `b = wall_time` for latency-class leaderboards, using the same formula. Cost-USD may be used as `b` for cross-provider comparisons (it normalizes token prices), but token-based braking is the default because it is price-independent.
+- Alternatively `b = wall_time` for latency-class leaderboards, using the same formula. Cost-USD may be used as `b` for cross-provider comparisons (it normalizes token prices), but token-based braking is the default because it is price-independent. The task's `max_cost_usd` budget additionally tightens the saturation point (converted to tokens via the pinned price table, SPEC §5.1) so a harness cannot brute-force a pass under a token-cheap model.
 
 **Why brake instead of just publishing cost separately?** Because a harness that solves tasks only by burning 10× tokens is not *better*; it is a different point on a Pareto frontier, and unweighted pass rate hides that. The brake keeps pass rate primary while making resource-extravagant strategies pay a visible, bounded price. The 5× saturation constant is chosen so a pass within 1.25× median loses ≤20% credit — noise-level for well-behaved harnesses — while a 10× spender keeps ≤50%.
 
@@ -151,11 +153,11 @@ Every run publishes:
 
 ### 4.3 Code-Quality probe (the one LLM axis)
 
-For tasks tagged `quality_probe`, a judge LLM (a **fixed model, different family from the task model**, to reduce family self-preference) sees only: the task statement, the original file(s), and the final diff. It never sees the transcript, harness name, cost, or identity. It scores 0–10 on a public rubric: correctness-preserving, minimal-diff discipline, naming, dead-code avoidance, idempotence. Q is reported per harness as a mean over quality tasks. **Q never feeds CB-Score.** Judge model and prompt are versioned in the repo.
+For tasks tagged `quality_probe`, a judge LLM (a **fixed model, different family from the task model**, to reduce family self-preference) sees only: the task statement, the original file(s), and the final diff. It never sees the transcript, harness name, cost, or identity. It scores 0–10 on a public rubric: correctness-preserving, minimal-diff discipline, naming, dead-code avoidance, idempotence. Q is reported per harness as a mean over quality tasks. **Q never feeds CB-HDR.** Judge model and prompt are versioned in the repo.
 
 ### 4.4 Seeds and variance
 
-Every task is run with `n ≥ 3` seeds (default `n = 3`, `n = 5` for leaderboard submissions) — distinct task-instance parameterizations where the task supports them (§6.1), otherwise repeated trials. Harness scores report **median CB-Score across seeds per task, then mean across tasks**, with interquartile range. A leaderboard entry without ≥3 seeds is marked `provisional`. Deterministic tasks with no parameter space (e.g. a fixed JSON transform) still run n=3 to expose flakiness; their per-task score is the median outcome.
+Every task is run with `n ≥ 3` seeds (default `n = 3`, `n = 5` for leaderboard submissions) — distinct task-instance parameterizations where the task supports them (§6.1), otherwise repeated trials. Harness scores report **median CB-HDR across seeds per task, then mean across tasks**, with interquartile range. A leaderboard entry without ≥3 seeds is marked `provisional`. Deterministic tasks with no parameter space (e.g. a fixed JSON transform) still run n=3 to expose flakiness; their per-task score is the median outcome.
 
 ---
 
@@ -182,6 +184,8 @@ The runner (`cli_bench` package, Python 3.11+) orchestrates:
 
 The backend is a property of the *run*, not the task; every task ships a Dockerfile and a `tools:` list the local backend asserts availability of.
 
+> **Implementation status (v0.9):** the `local` backend is implemented. The `docker` backend is specified here but **not yet implemented** — `cbench run --backend docker` refuses with an explicit error rather than pretending. Task Dockerfiles are shipped now so the docker backend can land without suite changes.
+
 ### 5.3 Transcript contract
 
 Every adapter must emit `transcript.jsonl` with one JSON object per line:
@@ -199,6 +203,15 @@ Every adapter must emit `transcript.jsonl` with one JSON object per line:
 ### 5.4 Cost accounting
 
 Usage comes from, in priority order: (1) harness-reported usage per turn, (2) provider-side usage if the adapter can read it, (3) token estimate from the transcript (chars/4 heuristic per message role, counted per turn, marked `estimated: true`). The method used is recorded per run; estimated-cost entries are flagged on the leaderboard. Cache-discounted tokens (0.1×) are included in `b` for braking, per §4.1.
+
+### 5.5 Model pinning, cohorts, and effective-model verification
+
+Because harness vendors wire different providers, a single universal "one model for every CLI" comparison is often **impossible** (Claude Code is Claude-family; Codex is OpenAI-family). Comparisons are therefore organized in **model-compatible cohorts**:
+
+- **Pinned cohort** — every harness *capable of running the exact requested model* runs it, with the model passed through the adapter (flag, env, or config) and recorded in the manifest. Ranking tables never combine incompatible cohorts.
+- **Native track** — first-party agents on their vendor-recommended model. Reported separately and explicitly **not** a causal harness isolation.
+
+Every adapter declares `model_families` in its profile; `cbench run` refuses a harness × model pairing outside the declared family (override: `--allow-incompatible`, recorded in the manifest). The runner additionally captures the **effective model** when the harness reports one (e.g. Claude Code's stream-json `result.model_id`): a native report that contradicts the requested model **aborts the run with exit code 3** — the manifest must never state a model the CLI did not run. Harnesses that cannot report a model are recorded as `effective_model: null` and flagged in reports.
 
 ---
 
@@ -240,13 +253,13 @@ CHECKSUMS          # sha256 of env/ + verifier.sh, stamped into run.json (I2)
 | perf       | `perf/hot-loop`      | standard | 3 | 10× speedup on a benchmark, semantics preserved |
 | docs       | `docs/api-ref`       | warmup   | 3 | Generate accurate API reference from source (quality probe) |
 
-(Version 1.0.0 ships all 12 wired into the repo, each with verifier + seeds; difficulty tiers and budgets are in each `task.yaml`.)
+(Version 0.9.0 ships all 12 wired into the repo, each with verifier + seeds; difficulty tiers and budgets are in each `task.yaml`.)
 
 ### 6.3 Task-versioning & treadmill policy
 
 Task suites rot. Policy:
 
-1. **Suite version** is semver-pinned in run manifests (`suite: 1.0.0`). Scores cite the suite version.
+1. **Suite version** is semver-pinned in run manifests (`suite: 0.9.0`). Scores cite the suite version.
 2. **Memorization response:** if a task's public reference solution leaks (or we detect seed-level memorization), the task is **retired from scoring** (marked `retired: reason`) and a parameterized successor ships in the next minor suite version. The old suite's leaderboard is frozen, not rewritten.
 3. **Behavioral drift:** task difficulty can silently shift as models improve (tasks get easier over time). Every 6 months the maintainers re-calibrate tier weights on fresh reference-harness runs, or re-cut the suite (major version bump).
 4. **No mid-cycle edits** to `verifier.sh` or prompts within a suite version. Ever. Fixes ship in a new version; the changelog says which entries are re-scored.
@@ -312,6 +325,8 @@ class Harness(Protocol):
 
 ## 10. Governance
 
+> **Planned for verified leaderboard submissions** — the governance below describes the *intended* submission policy and is **not yet implemented** in this release (no submission CI or maintainer tooling exists yet). Until it ships: all numbers are run by you, on your machine, from the published artifacts; nothing on the website claims third-party verification.
+
 - **Suite & scoring changes:** PR + two maintainer approvals; scoring-code changes additionally require one *score-reproduction run* proving the change re-ranks no existing published entry by more than the published CI width (or the entry is marked re-scored).
 - **Leaderboard submissions:** open a PR with `results/<date>-<harness>-<suite>/` containing `run.json` + artifacts link. CI re-runs 30% of tasks, re-verifies checksums, and posts a comment with the reproduced score. Divergence > CI width → submission is held for human review.
 - **Conflicts of interest:** maintainers affiliated with a harness vendor may not approve that harness's score-affecting PRs. Disclosed in `MAINTAINERS.md`.
@@ -335,12 +350,12 @@ h4: B = 1.245M/2.4M          = 0.52       (braked, but not erased — it did pas
 A harness that FAILED the task: R = 0 regardless of spend.
 ```
 
-CB-Score per harness = Σ (1.8 × B) over tasks ÷ Σ 1.8 over tasks, then averaged over seeds per task before summing (median across seeds first).
+CB-HDR per harness = Σ (1.8 × B) over tasks ÷ Σ 1.8 over tasks, then averaged over seeds per task before summing (median across seeds first).
 
 ## Appendix B — Glossary
 
 - **Harness** — the CLI/agent executable minus the model: system prompt, tools, loop, context management.
-- **Brake (B)** — the multiplicative efficiency factor in CB-Score; saturates at 1, decays toward 0 as resource spend exceeds 5× the passing-median.
+- **Brake (B)** — the multiplicative efficiency factor in CB-HDR; full credit within 5× the passing-median (saturation band), then linear decay toward 0.
 - **Budget-out** — a run terminated by the cost or wall-clock ceiling; scored as non-pass.
 - **Houdini** — the anti-gaming micro-suite (§7.2).
 - **Seeds** — materially distinct task instances (or repeated trials where no parameter space exists).
