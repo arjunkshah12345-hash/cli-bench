@@ -12,6 +12,7 @@ in logging fidelity are themselves recorded in the profile.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
@@ -70,12 +71,12 @@ class CLIHarness(CommandHarness):
         # model flag (SPEC §5.5). The runner additionally hard-fails when a
         # harness's native report contradicts the requested model.
         if ctx.model:
-            provider, _, bare = ctx.model.rpartition("/")
-            bare = bare or provider  # "claude-sonnet-4-5" vs "anthropic/claude-sonnet-4-5"
+            provider, sep, bare = ctx.model.rpartition("/")
+            bare = bare if sep else provider  # "claude-sonnet-4-5" vs "anthropic/claude-sonnet-4-5"
             cmd.extend(self.model_flags(bare, ctx.model))
         if self.prompt_mode == "argv":
             cmd.append(self.prompt_text(ctx.task))
-        elif self.prompt_mode == "flag":
+        elif self.prompt_mode == "flag" and self.prompt_flag:
             cmd.extend([self.prompt_flag, self.prompt_text(ctx.task)])
         return cmd
 
@@ -205,7 +206,7 @@ class ClaudeCode(CLIHarness):
         if etype == "result":
             ev = {"ts": None, "event": "final", "exit": 0 if obj.get("is_error") is False else 1}
             if obj.get("modelUsage"):
-                first = next(iter(obj["modelUsage"].values()), {})
+                first: dict[str, Any] = next(iter(obj["modelUsage"].values()), {})
                 if first.get("model"):
                     ev["model"] = str(first["model"])
             elif obj.get("model"):
@@ -278,10 +279,9 @@ class Codex(CLIHarness):
         home = Path(tempfile.mkdtemp(prefix="cbench-codex-home-"))
         src = Path.home() / ".codex" / "auth.json"
         if src.exists():
-            try:
+            # API-key auth still works without it.
+            with contextlib.suppress(OSError):
                 shutil.copy2(src, home / "auth.json")
-            except OSError:
-                pass  # API-key auth still works without it
         self._homes.append(home)
         return {"CODEX_HOME": str(home)}
 
@@ -336,7 +336,8 @@ class Codex(CLIHarness):
                 }
             return None
         if typ == "turn.completed":
-            u = obj.get("usage") if isinstance(obj.get("usage"), dict) else {}
+            raw_usage = obj.get("usage")
+            u: dict[str, Any] = raw_usage if isinstance(raw_usage, dict) else {}
             return {
                 "ts": None,
                 "event": "usage",
