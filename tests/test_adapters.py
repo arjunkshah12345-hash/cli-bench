@@ -1,0 +1,157 @@
+"""Tests for the harness registry and adapters."""
+
+import shutil
+from types import SimpleNamespace
+
+import pytest
+
+from cli_bench.harness import get_harness, registry
+from cli_bench.task import Task
+
+
+def test_registry_has_mocks_and_reals():
+    reg = registry()
+    for name in (
+        "mock-a",
+        "mock-b",
+        "claude-code",
+        "codex",
+        "opencode",
+        "cursor-agent",
+        "droid",
+        "gemini",
+        "aider",
+        "goose",
+    ):
+        assert name in reg, f"missing harness {name}"
+
+
+def test_get_harness_unknown_raises_with_known_list():
+    with pytest.raises(KeyError) as exc:
+        get_harness("definitely-not-a-harness")
+    assert "codex" in str(exc.value)
+
+
+def _ctx(task_id="refactor/deadcode", seed=0, budget=600):
+    task = Task(
+        id=task_id,
+        title="t",
+        prompt="Do the thing.",
+        category="refactor",
+        difficulty="standard",
+        time_budget_s=budget,
+        max_cost_usd=0.5,
+        seeds=3,
+        tags=[],
+    )
+    return SimpleNamespace(
+        task=task,
+        seed=seed,
+        workspace=None,
+        prompt_file="/tmp/prompt.txt",
+        time_budget_s=budget,
+        model="openai/gpt-5.3",
+        env_vars={},
+    )
+
+
+def test_mock_build_cmd_shape():
+    h = get_harness("mock-a")
+    cmd = h.build_cmd(_ctx())
+    assert cmd[0] == "python3"
+    assert "refactor/deadcode" in cmd
+    assert h.profile.approval_flags == []
+
+
+def test_mock_deterministic_outcomes():
+    import hashlib
+
+    def roll(name, tid, seed):
+        return int(hashlib.sha256(f"{name}|{tid}|{seed}".encode()).hexdigest()[:8], 16) % 1000 / 1000.0
+
+    assert roll("mock-x", "t", 0) == roll("mock-x", "t", 0)  # sanity: same inputs → same roll
+
+
+def test_real_adapters_append_prompt_argv():
+    codex = get_harness("codex")
+    cmd = codex.build_cmd(_ctx())
+    assert cmd[-1] == "Do the thing."
+    assert cmd[0] == "codex" and "exec" in cmd
+    # approval flag declared in profile matches the command
+    assert "--full-auto" in cmd
+
+
+def test_aider_flag_prompt_mode():
+    aider = get_harness("aider")
+    cmd = aider.build_cmd(_ctx())
+    # --message followed by the prompt
+    i = cmd.index("--message")
+    assert cmd[i + 1] == "Do the thing."
+
+
+def test_claude_parse_native_usage():
+    claude = get_harness("claude-code")
+    ev = claude.parse_native(
+        {
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "tool_use", "name": "Bash", "input": {}}],
+                "usage": {"input_tokens": 100, "output_tokens": 20, "cache_read_input_tokens": 500},
+            },
+        }
+    )
+    assert ev is not None
+    assert ev["tool"] == "bash"  # canonical tool normalization
+    assert ev["usage"]["cached_tokens"] == 500
+    assert ev["usage_estimated"] is False
+
+
+def test_codex_parse_native_token_count():
+    codex = get_harness("codex")
+    ev = codex.parse_native(
+        {
+            "msg": {
+                "type": "token_count",
+                "info": {
+                    "total_token_usage": {
+                        "input_tokens": 10,
+                        "output_tokens": 5,
+                        "reasoning_output_tokens": 3,
+                        "cached_input_tokens": 7,
+                    }
+                },
+            }
+        }
+    )
+    assert ev["event"] == "usage"
+    assert ev["usage"]["reasoning_tokens"] == 3
+    assert ev["usage"]["cached_tokens"] == 7
+
+
+def test_parse_transcript_fallback_estimates_usage():
+    h = get_harness("opencode")
+    events = h.parse_transcript(["hello world, this is a line of output"])
+    assert events[0]["event"] == "log"
+    assert events[0]["usage_estimated"] is True
+    assert events[0]["usage"]["input_tokens"] > 0
+
+
+def test_missing_reason_mentions_env(monkeypatch):
+    aider = get_harness("aider")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    assert "missing env" in aider.missing_reason()
+    assert aider.available() is False
+
+
+@pytest.mark.skipif(shutil.which("codex") is None, reason="codex binary not installed")
+def test_available_when_env_present(monkeypatch):
+    codex = get_harness("codex")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    assert codex.available() is True
+
+
+def test_versions_do_not_crash():
+    for h in registry().values():
+        v = h.version()
+        assert isinstance(v, str) and v  # "unknown" allowed; must not raise

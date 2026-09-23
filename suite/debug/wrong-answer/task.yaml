@@ -1,0 +1,12 @@
+id: debug/wrong-answer
+title: "Fix the failing case in a stats library"
+prompt: |
+  stats.py implements functions covered by tests/test_stats.py. Some tests
+  fail right now. Fix stats.py so every test passes. Do not modify the tests.
+category: debugging
+difficulty: standard
+time_budget_s: 480
+max_cost_usd: 0.60
+seeds: 3
+requires: [python3, pytest]
+tags: []

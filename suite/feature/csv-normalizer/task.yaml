@@ -1,0 +1,13 @@
+id: feature/csv-normalizer
+title: "Normalize a messy CSV against a written spec"
+prompt: |
+  data/input.csv contains 400 rows of messy user records. Normalize it into
+  data/output.csv following the rules in data/SPEC.md exactly (column order,
+  value formats, sorting). Do not modify input.csv or SPEC.md.
+category: feature
+difficulty: standard
+time_budget_s: 480
+max_cost_usd: 0.60
+seeds: 3
+requires: [python3]
+tags: []

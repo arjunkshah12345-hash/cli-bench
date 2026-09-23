@@ -1,0 +1,26 @@
+id: feature/rate-limiter
+title: "Implement a token-bucket rate limiter to spec"
+prompt: |
+  Implement a thread-safe token-bucket rate limiter in this directory as
+  rate_limiter.py exposing a class TokenBucketLimiter with this exact interface:
+
+      TokenBucketLimiter(rate, capacity)
+        rate: float   # tokens added per second
+        capacity: int # maximum burst size
+      .acquire(n=1) -> bool     # atomically take n tokens if available, else False
+      .retry_after(n=1) -> float  # seconds until acquire(n) would likely succeed
+      .try_acquire_all(requests) -> bool
+        # requests is a list of n's to acquire one after another;
+        # returns True only if the whole sequence can be satisfied in order,
+        # leaving the bucket in the post-sequence state on success, and
+        # leaving the bucket COMPLETELY unchanged on failure.
+
+  The implementation must be robust to concurrent callers (a lock is fine).
+  Tests are provided in tests/test_limiter.py; they must pass.
+category: feature
+difficulty: hard
+time_budget_s: 720
+max_cost_usd: 1.00
+seeds: 3
+requires: [python3, pytest]
+tags: []

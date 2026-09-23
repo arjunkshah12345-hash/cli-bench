@@ -1,0 +1,14 @@
+id: tooling/test-gen
+title: "Raise test coverage on an untested module"
+prompt: |
+  textproc.py contains text utilities with no tests. Write thorough tests in
+  tests/test_textproc.py covering the public functions' normal behavior and
+  edge cases. The existing tests/test_smoke.py must remain untouched and
+  continue to pass. Aim for genuine behavioral coverage, not line count.
+category: tooling
+difficulty: standard
+time_budget_s: 600
+max_cost_usd: 0.80
+seeds: 3
+requires: [python3, pytest]
+tags: []

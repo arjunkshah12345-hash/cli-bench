@@ -1,0 +1,14 @@
+id: data/log-analysis
+title: "Answer exact questions from an application log"
+prompt: |
+  data/app.log is a structured application log. Read QUESTIONS.md and write
+  your answers to answers.json, exactly matching the schema it describes.
+  Every answer must be derived from the log, not guessed. QUESTIONS.md and
+  data/app.log must not be modified.
+category: data
+difficulty: standard
+time_budget_s: 480
+max_cost_usd: 0.60
+seeds: 3
+requires: [python3]
+tags: []

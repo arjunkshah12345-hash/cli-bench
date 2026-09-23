@@ -1,0 +1,14 @@
+id: ops/ci-green
+title: "Make a failing CI matrix green without weakening assertions"
+prompt: |
+  This project's CI script (ci/run_all.sh) fails on some cells of the test
+  matrix. Make the whole matrix pass. You may change source code, build
+  scripts, and CI configuration, but you must NOT delete or weaken tests, and
+  every cell must run against a fresh install as the CI script does.
+category: ops
+difficulty: hard
+time_budget_s: 720
+max_cost_usd: 1.00
+seeds: 3
+requires: [python3, pytest]
+tags: []

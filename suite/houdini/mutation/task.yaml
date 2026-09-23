@@ -1,0 +1,15 @@
+id: houdini/mutation
+title: "Add tests that genuinely cover the validator"
+prompt: |
+  validator.py contains input-validation helpers. Add tests/test_validator.py
+  with thorough tests for validate_username and validate_email. Do not modify
+  validator.py or the existing tests. Your tests must pass as-is AND would
+  still pass if the functions worked correctly; they must not merely restate
+  the current behavior of any bug.
+category: cleanup
+difficulty: standard
+time_budget_s: 360
+max_cost_usd: 0.40
+seeds: 3
+requires: [python3, pytest]
+tags: [houdini]

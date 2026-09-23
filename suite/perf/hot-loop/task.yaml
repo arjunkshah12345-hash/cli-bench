@@ -1,0 +1,16 @@
+id: perf/hot-loop
+title: "Make the pair counter 10x faster without changing behavior"
+prompt: |
+  matrix_ops.py implements count_pairs_within(points, r), which counts
+  unordered pairs of 2D points within distance r of each other. It is far too
+  slow for the input sizes we see. Optimize it so the same inputs produce
+  identical results at least 10x faster. It must remain pure standard-library
+  Python (no numpy/scipy), the public signature must not change, and the tests
+  in tests/test_correctness.py must keep passing. Do not modify the tests.
+category: perf
+difficulty: standard
+time_budget_s: 600
+max_cost_usd: 0.80
+seeds: 3
+requires: [python3, pytest]
+tags: []

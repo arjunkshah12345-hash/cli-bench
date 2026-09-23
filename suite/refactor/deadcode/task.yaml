@@ -1,0 +1,14 @@
+id: refactor/deadcode
+title: "Prune dead code without breaking behavior"
+prompt: |
+  The file app.py in this directory has accumulated dead code. Three functions
+  are no longer used anywhere in this project. Identify them and remove them,
+  keeping everything else working exactly as before. The test suite in tests/
+  must still pass when you are done.
+category: refactor
+difficulty: standard
+time_budget_s: 480
+max_cost_usd: 0.60
+seeds: 3
+requires: [python3, pytest]
+tags: []

@@ -1,0 +1,17 @@
+id: sec/patch-xss
+title: "Close the cross-site scripting hole in the comment board"
+prompt: |
+  This directory contains a small comment-board web app (app.py). User
+  comments are rendered into HTML unsafely: a commenter can inject scripts
+  that would run in other visitors' browsers. Fix the vulnerability so
+  user-supplied content can never execute as markup, while legitimate text
+  (including characters like &, <, >, quotes) still displays correctly.
+  tests/test_exploit.py must pass when you are done; do not modify the tests
+  or the exploit payloads they contain.
+category: security
+difficulty: hard
+time_budget_s: 600
+max_cost_usd: 0.80
+seeds: 3
+requires: [python3, pytest]
+tags: []

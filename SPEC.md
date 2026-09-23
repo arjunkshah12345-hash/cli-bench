@@ -1,0 +1,348 @@
+# CLI-Bench — Specification v1.0.0
+
+**An apples-to-apples benchmark for agent harnesses** (CLIs like Claude Code, Codex CLI, OpenCode, Cursor Agent, Droid Factory, Gemini CLI, Aider, Goose).
+
+CLI-Bench measures **the harness, not the model**. One model, many harnesses, identical task suite, identical verifiers, identical budget rules. The only variable is the code between the model and the terminal.
+
+**Version:** 1.0.0 · **Status:** Stable · **Repo:** github.com/arjunkshah12345-hash/cli-bench · **Site:** cli-bench.vercel.app
+
+---
+
+## 1. Why this exists
+
+Every frontier lab releases a CLI, and every CLI publishes benchmark numbers. The numbers are not comparable:
+
+1. **Different models.** Harness A reports GPT-X on SWE-bench; harness B reports Claude-Y on Terminal-Bench. A new model release shifts every published number, so you cannot tell whether last month's winner is still a good harness.
+2. **Different tasks.** One suite includes Kaggle-style puzzles; another uses real GitHub issues. Task difficulty differences swamp harness differences.
+3. **Different budgets.** One harness gets 200 steps and no cost cap; another gets 25 turns. Budget differences are not model quality, but they are reported as if they were.
+4. **Different graders.** One uses fuzzy LLM-as-judge; another runs exact tests. Some graders accept more solution shapes than others.
+5. **Self-reported scoring.** Vendors grade their own runs. Few publish logs you can re-grade yourself.
+
+Meanwhile, there is real evidence the gap is large. Public SWE-bench re-runs using the same checkpoint under different scaffolds have shown score spreads comparable to a full model generation (e.g. a mini-SWE-agent-style minimal loop vs. a fully instrumented commercial agent, on the identical model snapshot). Harness choice can matter more than the model-version bump you were about to pay for. Yet there is no independent, harness-controlled benchmark — one fixed model, one task suite, one verifier, one budget — that isolates the harness variable.
+
+**CLI-Bench's only goal:** hold every other variable constant and measure what the harness adds or loses.
+
+### What this is not
+
+- **Not a model leaderboard.** With the model pinned, model improvements are invisible by construction (and any score movement is attributable to the harness or task updates, both of which are versioned).
+- **Not a Terminal-Bench replacement.** Terminal-Bench measures agents on hard terminal tasks across many agents; its agent-vs-agent comparison re-tests the full stack (model + agent). CLI-Bench pins the model on purpose.
+- **Not a vibe check.** Every score decomposes into pass rate, cost, wall time, tokens, and turns, each with an exact, inspectable definition.
+
+---
+
+## 2. Measurement invariants
+
+These five invariants define the benchmark. A run that violates any invariant is not a CLI-Bench run.
+
+### I1 — Model pinning
+
+All harnesses in a comparison use the **same model ID** with pinned alias resolution:
+
+- Each comparison declares `model_id` (e.g. `openai/gpt-5.3`) and, where a provider exposes a frozen snapshot, `snapshot` (a date/version). Aliases resolve to snapshots at run start; the resolved snapshot ID is recorded in `run.json`.
+- Harnesses that cannot pin a snapshot record the alias they sent and the date of the run. Snapshot-pinnable harnesses are preferred in the official leaderboard.
+- Sampling temperature, top_p, and other decoding parameters are **whatever the harness defaults to** — this is a harness property, not a model property, and CLI-Bench deliberately does not normalize it. (We measure harnesses as users actually run them: `codex`, `claude -p`, `aider` out of the box.)
+- **Reasoning-effort is a harness capability, not a confound**: harnesses MAY set reasoning levels (e.g. `xhigh`); CLI-Bench records what was set. When a leaderboard publishes a "pinned model" class, it may sub-classify by effort tier (see §6.3) so an `xhigh` harness is never compared against a `medium` one as if the difference were harness quality alone.
+
+### I2 — Task uniformity
+
+Every harness sees the **same container**, the **same task files**, the **same prompt**, and the same environment variables. No harness receives extra context, hints, memory, or pre-seeded caches that others do not. Harness-native features (planning modes, background agents, tool ecosystems) are part of the harness being measured — that is the point — but they must operate within the same container and budget as everyone else.
+
+### I3 — Budget uniformity
+
+Every harness gets the same two budget envelopes on the same task:
+
+- **Wall clock:** `time_budget_s` (task-level; see tasks for values).
+- **Cost ceiling:** `max_cost_usd` computed from a single price table pinned in the run manifest (USD per 1M input/output tokens for the chosen model). Tokens are the harness-reported usage if available, else estimated from the transcript per §5.4.
+
+A run is **budget-exhausted** when either ceiling is hit. Its outcome is recorded (`budget_exhausted: true`, which ceiling) and it is scored as a non-pass (§4.1). There are no infinite-token hall passes.
+
+### I4 — Verifier objectivity
+
+Every task has a `verifier` that is **a program, not a judge**. Verifiers are deterministic shell scripts or pytest files run in a pristine container copy of the final workspace state. Verifiers never read the transcript, never call an LLM, and are identical for every harness. Verifier behavior is defined by the task's `verifier.sh` exit code (0 = pass) plus explicit artifacts when the task requires them.
+
+LLM-as-judge is permitted for exactly one thing: the **Code-Quality probe** (§4.2, quality-tier score), and even there the judge input contains no agent identity and no transcript; it sees only the final diff of the changed files.
+
+### I5 — Full transparency
+
+Every published score links to raw artifacts: the full transcript (`transcript.jsonl`), the final workspace (`workspace.tar.zst` when it contains no secrets), per-turn token/cost accounting, and the verifier output. Anyone can re-grade a run from its artifacts. Submissions that cannot produce artifacts are not listed.
+
+---
+
+## 3. What "the harness" actually is
+
+We define the **harness** as the executable system the user invokes, minus the model behind it. Concretely, for a CLI named `foo`:
+
+| In scope (measured)                              | Out of scope (held constant)          |
+| ------------------------------------------------ | ------------------------------------- |
+| System prompt & instruction framing              | Model weights                         |
+| Tool set & tool schemas exposed                  | Model context window (same model ⇒ same window) |
+| Context management (compaction, file-view truncation) | Provider rate limits             |
+| Retry/backoff & error handling                   | Machine specs (same container shape)  |
+| Sub-agents, parallelism, planning modes          | Internet access (same allowlist)      |
+| File-edit ergonomics (search/replace vs rewrite, lints on save) | Network MTU :)        |
+| Verification loops (run tests? read errors? when?) | Time of day, provider load (averaged over N seeds) |
+| Terminal UX fidelity (it must work non-interactively) |                                   |
+
+Harnesses are run **headless/non-interactive** with a single task prompt (the same one) and a fixed startup environment. Flags that change behavior materially (e.g. `--dangerously-skip-permissions`, auto-approve, plan mode) must be declared in the harness profile and are shown on the leaderboard so a "max-agency" config is never silently compared to a "guarded" one.
+
+---
+
+## 4. The metric system
+
+### 4.1 Primary score: CB-Score
+
+CB-Score is the headline number. It is deliberately simple and cannot be gamed by trading money for time.
+
+```
+CB-Score_i  =  Σ_t  1[task t passed]  ·  R(t, i)  /  Σ_t  R(t, i)          (weight-normalized pass rate)
+
+R(t, i)     =  w_category(t) · w_difficulty(t) · B(t, i)
+
+B(t, i)     =  min(1, (b_ref(t) · p50) / b_i(t))       ∈ (0, 1]     — the efficiency brake
+
+b_i(t)      =  actual resource spend by harness i on task t
+p50         =  median b across harnesses that passed t
+b_ref(t)    =  b at which the brake saturates: b_ref(t) = 5 × p50 (clamped to task budget)
+w_category  ∈ [0.75, 1.5]   (task category weight; spec table below)
+w_difficulty ∈ {1.0, 1.25, 1.5, 1.75}  for tiers {warmup, standard, hard, frontier}
+```
+
+**The brake B.** A harness that passes a task after spending the median resources scores 1.0 on it. A harness that passes after spending 5× the median (or hits its budget) is *braked* toward zero credit — smoothly, not punitively: at 2× median it still earns ~0.5 of the task's weight, because resource spend is a continuum, and a 1.9× pass is real capability. The brake applies multiplicatively to the task weight so it can only pull a harness down, never up.
+
+- **b = tokens_total** by default (input + output, includes reasoning tokens; cache-read tokens count at a 0.1× discount since they are genuinely cheaper and cache friendliness is a real harness skill).
+- Alternatively `b = wall_time` for latency-class leaderboards, using the same formula. Cost-USD may be used as `b` for cross-provider comparisons (it normalizes token prices), but token-based braking is the default because it is price-independent.
+
+**Why brake instead of just publishing cost separately?** Because a harness that solves tasks only by burning 10× tokens is not *better*; it is a different point on a Pareto frontier, and unweighted pass rate hides that. The brake keeps pass rate primary while making resource-extravagant strategies pay a visible, bounded price. The 5× saturation constant is chosen so a pass within 1.25× median loses ≤20% credit — noise-level for well-behaved harnesses — while a 10× spender keeps ≤50%.
+
+**Category weights (w_category):**
+
+| Category            | Weight | Rationale |
+| ------------------- | ------ | --------- |
+| `refactor`          | 1.25   | Precision-editing is the core harness skill |
+| `feature`           | 1.25   | End-to-end construction of new behavior |
+| `debugging`         | 1.2    | Reading, hypothesizing, verifying |
+| `tooling`           | 1.1    | Build, test, migration, environment work |
+| `data`              | 1.1    | Deterministic analysis & transformation |
+| `ops`               | 1.0    | Scripts, CI, systemd, containers |
+| `security`          | 1.0    | Vulnerability identification & closure |
+| `perf`              | 1.0    | Measured optimization under tests |
+| `docs`              | 0.9    | Documentation generation (LLM judges only here) |
+| `cleanup`           | 0.75   | Pruning; hardest to verify objectively |
+
+**Difficulty tiers (w_difficulty):** `warmup` 1.0 · `standard` 1.25 · `hard` 1.5 · `frontier` 1.75.
+
+### 4.2 Secondary axes (reported, never hidden)
+
+Every run publishes:
+
+| Axis                  | Definition                                                                 | Notes |
+| --------------------- | -------------------------------------------------------------------------- | ----- |
+| **Pass rate**         | Unweighted % of tasks passed (verifier exit 0, within budget)               | The raw signal |
+| **Cost (USD)**        | Σ tokens × pinned price table                                               | Price table versioned per run |
+| **Wall time**         | Σ per-task wall seconds (median across seeds)                               | |
+| **Tokens**            | Input, output, reasoning, cache-read (reported separately)                  | From usage blocks, else transcript-derived |
+| **Turns**             | Model round-trips per task                                                  | Tool calls per round are not counted |
+| **Stall ratio**       | Fraction of turns with no tool call and no >140-char model output            | Harness pathology detector |
+| **Retry churn**       | Repeated identical tool calls (>2) per task                                  | |
+| **Budget-outs**       | Tasks ended by cost ceiling / time ceiling                                   | Split by which ceiling |
+| **Error rate**        | Tasks ending in harness crash, auth failure, or unparseable state            | |
+| **Code quality (Q)**  | 0–10 LLM-judged on final diffs of `quality_probe` tasks, identity-blind      | Only axis allowed an LLM; see §4.3 |
+| **Sandbox integrity** | ≥97% of checkpoints hold; violations listed per task                         | See §7 |
+
+### 4.3 Code-Quality probe (the one LLM axis)
+
+For tasks tagged `quality_probe`, a judge LLM (a **fixed model, different family from the task model**, to reduce family self-preference) sees only: the task statement, the original file(s), and the final diff. It never sees the transcript, harness name, cost, or identity. It scores 0–10 on a public rubric: correctness-preserving, minimal-diff discipline, naming, dead-code avoidance, idempotence. Q is reported per harness as a mean over quality tasks. **Q never feeds CB-Score.** Judge model and prompt are versioned in the repo.
+
+### 4.4 Seeds and variance
+
+Every task is run with `n ≥ 3` seeds (default `n = 3`, `n = 5` for leaderboard submissions) — distinct task-instance parameterizations where the task supports them (§6.1), otherwise repeated trials. Harness scores report **median CB-Score across seeds per task, then mean across tasks**, with interquartile range. A leaderboard entry without ≥3 seeds is marked `provisional`. Deterministic tasks with no parameter space (e.g. a fixed JSON transform) still run n=3 to expose flakiness; their per-task score is the median outcome.
+
+---
+
+## 5. Execution model
+
+### 5.1 Runner
+
+The runner (`cli_bench` package, Python 3.11+) orchestrates:
+
+1. **Prepare** container (Docker backend) or local sandbox dir (macOS/Linux backend) from the task's `env` definition.
+2. **Print preamble** into the workspace: a `CLI_BENCH.md` (task-neutral notice: "You are being benchmarked; work in this directory; verify your work") — identical bytes for every harness.
+3. **Launch** the harness via its adapter (§8) with the task prompt on stdin/argv, in the workspace, with the task's `env_vars`.
+4. **Enforce budgets**: wall clock (kill at limit, mark outcome) and cost (usage-sampled each turn; kill on breach).
+5. **Checkpoint** the workspace at fixed fractions of the time budget (0.25, 0.5, 0.75) for anti-cheat replay (§7.1).
+6. **Verify**: copy final workspace to a pristine verifier container (or clean venv locally), run `verifier.sh`, capture exit code + logs.
+7. **Record** `run.json`, `transcript.jsonl`, `usage.jsonl`, `verifier.log`, workspace tarball, and an environment fingerprint (`env_fingerprint.json`: OS, versions of python/node/etc. inside the container, harness version string).
+
+### 5.2 Backends
+
+| Backend   | Flag           | Use |
+| --------- | -------------- | --- |
+| `docker`  | `--backend docker` | Default for CI and leaderboard submissions. Task Dockerfiles pin exact toolchains. |
+| `local`   | `--backend local`  | macOS/Linux dev boxes and Docker-less CI. Runs in an isolated temp dir with the host's tools; env fingerprint recorded so local scores are comparable within, not across, machine classes. |
+
+The backend is a property of the *run*, not the task; every task ships a Dockerfile and a `tools:` list the local backend asserts availability of.
+
+### 5.3 Transcript contract
+
+Every adapter must emit `transcript.jsonl` with one JSON object per line:
+
+```json
+{"ts": 1719000000.123, "event": "turn_start", "turn": 1}
+{"ts": 1719000001.456, "event": "tool_call", "turn": 1, "tool": "bash", "args_summary": "pytest -x -q tests/", "ok": true, "duration_ms": 812}
+{"ts": 1719000002.001, "event": "usage", "turn": 1, "input_tokens": 41230, "output_tokens": 918, "reasoning_tokens": 4096, "cached_tokens": 38120}
+{"ts": 1719000003.700, "event": "turn_end", "turn": 1}
+{"ts": 1719000004.000, "event": "final", "exit": 0}
+```
+
+`tool` values are normalized to a canonical vocabulary (`bash`, `edit`, `read`, `write`, `grep`, `glob`, `browser`, `task`, `mcp:<server>`, `other`). When an adapter cannot parse native events it must fall back to streaming the CLI's stdout/stderr through the same schema (`event: "log"`), so *every* harness produces a transcript; capability differences in logging are themselves recorded (§9, logging fidelity).
+
+### 5.4 Cost accounting
+
+Usage comes from, in priority order: (1) harness-reported usage per turn, (2) provider-side usage if the adapter can read it, (3) token estimate from the transcript (chars/4 heuristic per message role, counted per turn, marked `estimated: true`). The method used is recorded per run; estimated-cost entries are flagged on the leaderboard. Cache-discounted tokens (0.1×) are included in `b` for braking, per §4.1.
+
+---
+
+## 6. The task suite
+
+### 6.1 Design rules
+
+Every task lives in `tasks/<category>/<task-id>/` with:
+
+```
+task.yaml          # id, title, prompt, category, difficulty, time_budget_s, max_cost_usd,
+                   # seeds, requires (tools), tags (e.g. quality_probe), weight overrides
+Dockerfile         # exact environment (python/node/etc. versions pinned)
+env/               # seed material: buggy repo, data files, failing CI, etc.
+seed.py            # materializes seed i (i = 0..n-1) into the workspace — deterministic
+verifier.sh        # exit 0 = pass; runs in a pristine copy; no LLM calls
+solution/          # reference solution (optional but encouraged) for calibration
+CHECKSUMS          # sha256 of env/ + verifier.sh, stamped into run.json (I2)
+```
+
+- **Parameterized seeds:** tasks with a parameter space (file sizes, bug positions, repo shapes) must implement `seed.py` so seeds are *materially different instances*, not retries of the same instance. This is how we defeat memorization without changing the task.
+- **Prompts are harness-neutral:** no "use ripgrep" (a harness without a grep tool still has bash), no time pressure hints, no file hints beyond what a competent engineer would need. Prompts are frozen; they ship with the suite version.
+- **Verifiers are adversarial to lucky passes:** they check invariants, not exact strings (unless the task is a serialization task where exactness *is* the spec).
+
+### 6.2 Categories and current tasks
+
+| Category   | Task ID              | Tier     | n | What it measures (one line) |
+| ---------- | -------------------- | -------- | --- | --------------------------- |
+| refactor   | `refactor/deadcode`  | standard | 3 | Prune dead code w/o breaking behavior (tests must stay green) |
+| refactor   | `refactor/api-shape` | hard     | 3 | Reshape a module's public API; migrate all call sites |
+| feature    | `feature/rate-limiter` | hard   | 3 | Build token-bucket limiter to spec + property tests |
+| feature    | `feature/csv-normalizer` | standard | 3 | Normalize messy CSV against a written spec |
+| debugging  | `debug/flaky-test`   | hard     | 3 | Diagnose & fix a genuinely flaky test (race/ordering) |
+| debugging  | `debug/wrong-answer` | standard | 3 | Fix an off-by-one/logic bug from failing tests alone |
+| tooling    | `tooling/test-gen`   | standard | 3 | Raise coverage on an untested module via generated tests |
+| data       | `data/log-analysis`  | standard | 3 | Answer exact questions from a large structured log |
+| ops        | `ops/ci-green`       | hard     | 3 | Make a failing CI matrix green w/o weakening assertions |
+| security   | `sec/patch-xss`      | hard     | 3 | Close an XSS in a small web app; exploit test must fail |
+| perf       | `perf/hot-loop`      | standard | 3 | 10× speedup on a benchmark, semantics preserved |
+| docs       | `docs/api-ref`       | warmup   | 3 | Generate accurate API reference from source (quality probe) |
+
+(Version 1.0.0 ships all 12 wired into the repo, each with verifier + seeds; difficulty tiers and budgets are in each `task.yaml`.)
+
+### 6.3 Task-versioning & treadmill policy
+
+Task suites rot. Policy:
+
+1. **Suite version** is semver-pinned in run manifests (`suite: 1.0.0`). Scores cite the suite version.
+2. **Memorization response:** if a task's public reference solution leaks (or we detect seed-level memorization), the task is **retired from scoring** (marked `retired: reason`) and a parameterized successor ships in the next minor suite version. The old suite's leaderboard is frozen, not rewritten.
+3. **Behavioral drift:** task difficulty can silently shift as models improve (tasks get easier over time). Every 6 months the maintainers re-calibrate tier weights on fresh reference-harness runs, or re-cut the suite (major version bump).
+4. **No mid-cycle edits** to `verifier.sh` or prompts within a suite version. Ever. Fixes ship in a new version; the changelog says which entries are re-scored.
+
+---
+
+## 7. Anti-cheat
+
+Harnesses are clever; some will find the verifier. Countermeasures, all enforced mechanically:
+
+1. **Verifier integrity:** `verifier.sh` + `env/` checksums are stamped into the run manifest. A run whose checksums differ from the suite release is invalid.
+2. **Replay audit:** a random ≥10% sample of passes per submission is re-run: fresh container from the *checkpointed* workspace (taken before the final verifier would have run), verifier re-executed. If the workspace state at checkpoint already contained verifier-satisfying state that the agent then mutated to hide (e.g. deleting tests after grepping for them), the replay diverges from the recorded final state — flagged for human review. Additionally, the **Houdini probe** suite (§7.2) is run per-harness, not per-task, and its result gates the whole submission.
+3. **Workspace diffing:** every task's verifier runs against the final workspace *and* reports which task-shipped files were deleted or emptied. Deleting tests, verifiers, or spec files the task shipped = automatic fail of that task (recorded as `outcome: sabotage`).
+4. **Process hygiene:** the runner records all spawned processes (names only). Spawning a network fetch of the task suite URL from the run manifest's known-bad list, or writing to paths outside the workspace, fails sandbox integrity (§ below).
+5. **Sandbox integrity gate:** the harness process runs with workspace-scoped writes; reads outside the workspace are allowed (real CLIs read toolchains), writes outside are blocked by the Docker backend (read-only rootfs mounts beyond the workspace) and flagged by the local backend (best-effort path audit). Integrity checkpoints must hold on ≥97% of samples or the submission is marked `invalid-environment` and excluded.
+6. **No pre-knowledge injection:** harnesses must run with default memory/skills/config dirs **empty of task material** (profile declares which dirs were mounted; random audit re-runs verify a clean-profile run reproduces the score within noise).
+
+### 7.2 Houdini probes
+
+A 4-task micro-suite, run alongside the main suite, where the *only* way to pass is to NOT cheat (tests re-verify the agent's claimed work from outside the agent's view). These detect harnesses that systematically game verifiers:
+
+- `houdini/self-test`: task asks the agent to write a test; verifier checks the test *fails* against a known-broken implementation and passes against the reference.
+- `houdini/mutation`: verifier applies small mutations to the agent's implementation; if the agent's tests don't catch ≥80% of mutants, the agent probably never ran its own tests. (Reinforces "verify your work" over "look done".)
+- `houdini/hidden-spec`: spec lives only inside a data file the agent must read; no file-name hint. Rewards reading, not guessing.
+- `houdini/no-cheat`: verifier checks the agent did NOT read `verifier.sh` (file-access audit via `strace`-style recording in Docker backend) while completing an easy task.
+
+A harness failing Houdini is flagged `untrusted` on the leaderboard. Scores stand; trust label is honest.
+
+---
+
+## 8. Harness adapter contract
+
+Adapters live in `harnesses/<name>/` and implement:
+
+```python
+class Harness(Protocol):
+    name: str
+    version_cmd: list[str]  # e.g. ["codex", "--version"]
+    build_cmd: Callable[[TaskContext], list[str] | ShellSpec]  # materialize argv
+    prompt_mode: "stdin" | "argv" | "file"
+    parse_transcript: Callable[[RawLog], list[TranscriptEvent]]  # normalize §5.3
+    profile: HarnessProfile  # flags, memory dirs, network policy, notes
+```
+
+`HarnessProfile` records: approval flags used, whether the harness defaults to plan-first, supported transcript fidelity (`native` events vs `stdout` fallback), supported backends, and auth requirements (e.g. `OPENAI_API_KEY` — the runner checks and fails fast with a clear message).
+
+**Headless-first rule:** every shipped adapter must run the harness in its documented non-interactive mode (`codex exec`, `claude -p`, `opencode run`, `cursor-agent -p`, `droid exec`, `gemini -p`, `aider --message`, `goose run -t`, …). Interactive-only harnesses are out of scope for now — a benchmark must not depend on someone driving a TUI.
+
+**Adding a harness:** see `harnesses/TEMPLATE.py` and `docs/adding-a-harness.md`. PRs adding adapters must include one `smoke_test` proving the adapter round-trips a trivial prompt.
+
+---
+
+## 9. Known limitations (honesty section)
+
+1. **Auth-side capability leakage.** Harnesses backed by the same lab as the pinned model may get soft advantages (better defaults, private endpoints, faster tool schemas). We mitigate by publishing auth configuration per harness and running a cross-family control (pinned model from lab A run under harnesses from lab A and lab B; if lab-B harnesses systematically underperform on equal settings, that is reported as an axis, not hidden).
+2. **Estimated-token noise.** Harnesses without native usage reporting get estimated costs (±10–20%). Braking uses the same estimate for all such harnesses; comparisons *within* the estimate class are fair.
+3. **Harness-specific tool ecosystems.** Some harnesses ship browser/MCP tools others lack. On tasks where a tool category is decisive, we tag `requires:` and report capability-matched views (e.g. leaderboard filtered to harnesses with a browser tool). The overall leaderboard always shows the unfiltered truth.
+4. **Task coverage.** 12 tasks × 3 seeds is enough to rank harnesses with CIs (binomial-ish via bootstrap over tasks+seeds), not enough for fine-grained sub-100 deltas. We publish bootstrap CIs and refuse to discuss differences smaller than them.
+5. **The harness is entangled with its lab's model tuning.** Some harness prompts are tuned to specific model families. Pinning one model may under-serve harnesses tuned for another. The cross-family control (§9.1) partially exposes this; we report it rather than normalize it away, because users experience it as-is.
+6. **Verifiers can be gamed by a sufficiently motivated harness.** Houdini catches systematic gaming, not bespoke one-off gaming. The 10% replay audit is our best mechanical backstop. Human review of flagged passes closes the gap.
+
+---
+
+## 10. Governance
+
+- **Suite & scoring changes:** PR + two maintainer approvals; scoring-code changes additionally require one *score-reproduction run* proving the change re-ranks no existing published entry by more than the published CI width (or the entry is marked re-scored).
+- **Leaderboard submissions:** open a PR with `results/<date>-<harness>-<suite>/` containing `run.json` + artifacts link. CI re-runs 30% of tasks, re-verifies checksums, and posts a comment with the reproduced score. Divergence > CI width → submission is held for human review.
+- **Conflicts of interest:** maintainers affiliated with a harness vendor may not approve that harness's score-affecting PRs. Disclosed in `MAINTAINERS.md`.
+- **License:** Apache-2.0. Tasks and verifiers are public; seed material that enables memorization may be kept in a private repo with checksums published (suite integrity stays auditable).
+
+---
+
+## Appendix A — Scoring worked example
+
+Task `debug/flaky-test` (difficulty `hard`, category `debugging` ⇒ weights 1.5 × 1.2 = 1.8). Suppose 4 harnesses pass, with token spend:
+
+```
+h1: 410k   h2: 890k   h3: 1.6M   h4: 2.4M   →  p50 = median(410k, 890k, 1.6M, 2.4M) = (890k+1.6M)/2 = 1.245M
+b_ref = 5 × 1.245M = 6.225M   (under the task budget cap, so no clamping)
+
+h1: B = min(1, 1.245M/410k)  = 1.0        (capped — h1 was FASTER than median)
+h2: B = min(1, 1.245M/890k)  = 1.0        (≈ median, no brake)
+h3: B = 1.245M/1.6M          = 0.78       (2× the min, still fine)
+h4: B = 1.245M/2.4M          = 0.52       (braked, but not erased — it did pass)
+
+A harness that FAILED the task: R = 0 regardless of spend.
+```
+
+CB-Score per harness = Σ (1.8 × B) over tasks ÷ Σ 1.8 over tasks, then averaged over seeds per task before summing (median across seeds first).
+
+## Appendix B — Glossary
+
+- **Harness** — the CLI/agent executable minus the model: system prompt, tools, loop, context management.
+- **Brake (B)** — the multiplicative efficiency factor in CB-Score; saturates at 1, decays toward 0 as resource spend exceeds 5× the passing-median.
+- **Budget-out** — a run terminated by the cost or wall-clock ceiling; scored as non-pass.
+- **Houdini** — the anti-gaming micro-suite (§7.2).
+- **Seeds** — materially distinct task instances (or repeated trials where no parameter space exists).
+- **Provisional** — a leaderboard entry with <3 seeds.
+- **Untrusted** — a harness that failed the Houdini gate; scores shown, flagged.

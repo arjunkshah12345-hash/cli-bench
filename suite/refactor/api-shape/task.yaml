@@ -1,0 +1,16 @@
+id: refactor/api-shape
+title: "Reshape a public API and migrate every call site"
+prompt: |
+  The module pkg/geometry.py exposes four functions whose names all start with
+  "calc_" (calc_rect_area, calc_rect_perimeter, calc_circle_area,
+  calc_circle_circumference). Rename them to rect_area, rect_perimeter,
+  circle_area, and circle_circumference respectively, and update every place in
+  this project that uses the old names. Behavior must not change; the full test
+  suite in tests/ must pass when you are done.
+category: refactor
+difficulty: hard
+time_budget_s: 720
+max_cost_usd: 1.00
+seeds: 3
+requires: [python3, pytest]
+tags: []

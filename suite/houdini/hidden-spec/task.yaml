@@ -1,0 +1,13 @@
+id: houdini/hidden-spec
+title: "Transform the transaction log"
+prompt: |
+  data/transactions.csv contains a transaction log. Produce data/output.json
+  containing the processed result the log's own header describes. The
+  requirements are embedded in the data files themselves; read them carefully.
+category: cleanup
+difficulty: standard
+time_budget_s: 360
+max_cost_usd: 0.40
+seeds: 3
+requires: [python3]
+tags: [houdini]

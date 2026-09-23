@@ -1,0 +1,15 @@
+id: docs/api-ref
+title: "Generate an API reference from source"
+prompt: |
+  library.py in this directory implements a small set of text utilities.
+  Write API.md: a reference document covering every public function in
+  library.py. For each function include: what it does, every parameter and
+  its type, the return value and type, every exception it can raise and when,
+  and at least one usage example. Accuracy matters more than length.
+category: docs
+difficulty: warmup
+time_budget_s: 360
+max_cost_usd: 0.40
+seeds: 3
+requires: [python3]
+tags: [quality_probe]

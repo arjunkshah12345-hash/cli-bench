@@ -1,0 +1,15 @@
+id: debug/flaky-test
+title: "Diagnose and fix an intermittently failing test"
+prompt: |
+  tests/test_pipeline.py in this project fails intermittently (run it a few
+  times to see). The failures are real: there is a bug in jobs.py. Find the
+  root cause and fix it in jobs.py. Do not weaken, skip, or delete tests to
+  make them pass, and do not change what the tests assert. When fixed, the
+  suite must pass reliably, not just once.
+category: debugging
+difficulty: hard
+time_budget_s: 600
+max_cost_usd: 0.80
+seeds: 3
+requires: [python3, pytest]
+tags: []

@@ -1,0 +1,18 @@
+# PROCESSING_RULES (v3, 2026-05-14) — applies to every data row below
+# amount and fee are USD; balance_delta = amount - fee
+# RULE grouped-summary: emit one object per merchant, in this exact key order:
+#   merchant, transaction_count, total_volume, net_total, first_ts, last_ts
+# RULE amounts: total_volume = sum of |amount| over the merchant's transactions;
+#   net_total = sum of (amount - fee), rounded to 2 decimals
+# RULE timestamps: first_ts / last_ts are ISO-8601 UTC "YYYY-MM-DDTHH:MM:SSZ";
+#   the source log stores them as Unix epoch seconds — convert, do not truncate
+# RULE ordering: merchants sorted by net_total descending, ties by merchant name ascending
+# RULE output: JSON array written to data/output.json, UTF-8, 2-space indent
+ts,merchant,amount,fee
+1767225600,acme,120.50,2.50
+1767225660,globex,-40.00,1.00
+1767312000,acme,80.00,2.00
+1767398400,initech,15.25,0.75
+1767484800,globex,210.10,3.10
+1767571200,acme,-30.00,1.50
+1767657600,initech,45.00,1.25
