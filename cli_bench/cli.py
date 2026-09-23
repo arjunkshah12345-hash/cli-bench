@@ -131,7 +131,10 @@ def _verify_effective_models(run_dir: Path, requested: str) -> None:
         except (OSError, json.JSONDecodeError):
             continue
         eff = data.get("effective_model")
-        if eff and requested and eff != requested:
+        # Compare bare ids too: codex reports "gpt-5.6-luna" while the
+        # manifest may pin "openai/gpt-5.6-luna" — same model, different form.
+        bare = requested.rpartition("/")[2] if requested else requested
+        if eff and requested and eff not in (requested, bare):
             offenders.append(
                 f"{data.get('harness')} {data.get('task_id')} s{data.get('seed')}: "
                 f"requested {requested!r} but harness ran {eff!r}"

@@ -15,6 +15,8 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import tempfile
+from pathlib import Path
 from typing import Any
 
 from cli_bench.harness import CommandHarness, HarnessProfile, estimate_text_usage
@@ -213,38 +215,142 @@ class ClaudeCode(CLIHarness):
 
 
 class Codex(CLIHarness):
+    """codex exec --json (verified against codex 0.153.0).
+
+    Isolation: CODEX_HOME is redirected to a throwaway copy holding only
+    auth.json, so the user's ~/.codex/config.toml, AGENTS.md, agentguide.md,
+    skills and session history cannot leak into a benchmark trial. The user
+    profile is *not* part of the harness under test.
+
+    Model pinning: -m <bare slug> (codex rejects provider-prefixed ids under
+    ChatGPT auth). The effective model is *proven* post-run from the session
+    rollout file (turn_context.payload.model), not assumed.
+    """
+
     name = "codex"
     binary = "codex"
     version_cmd = ["codex", "--version"]
     prompt_mode = "argv"
-    cmd_template = ["codex", "exec", "--json", "--skip-git-repo-check", "--full-auto"]
+    cmd_template = [
+        "codex", "exec", "--json", "--skip-git-repo-check",
+        "--ignore-user-config", "--approve-for-me",
+    ]
     profile = HarnessProfile(
-        approval_flags=["--full-auto"],
+        approval_flags=["--approve-for-me (implies workspace-write sandbox)"],
         plan_first=False,
         transcript_fidelity="native",
-        backends=["local", "docker"],
-        auth_env=["OPENAI_API_KEY"],
+        backends=["local"],
+        auth_env=["OPENAI_API_KEY"],  # satisfied either by an API key or `codex login`
         model_families=["openai"],
-        notes="codex exec; experimental JSON events parsed when stable; model via -m/--model",
+        notes="codex exec --json (0.15x schema); CODEX_HOME sandboxed per trial; "
+        "effective model proven from session rollout (SPEC 5.5)",
     )
-    missing_hint = "npm i -g @openai/codex"
+    missing_hint = "npm i -g @openai/codex && codex login"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._homes: list[Path] = []  # CODEX_HOME copies made per trial
+
+    def available(self) -> bool:
+        if not shutil.which(self.binary):
+            return False
+        if os.environ.get("OPENAI_API_KEY"):
+            return True
+        # ChatGPT-mode login: codex stores OAuth tokens in ~/.codex/auth.json.
+        auth = Path.home() / ".codex" / "auth.json"
+        try:
+            data = json.loads(auth.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        return bool(data.get("tokens", {}).get("access_token"))
+
+    def missing_reason(self) -> str:
+        if not shutil.which(self.binary):
+            return f"binary {self.binary!r} not on PATH" + (
+                f" ({self.missing_hint})" if self.missing_hint else ""
+            )
+        if self.available():
+            return ""
+        return "no OPENAI_API_KEY and no ChatGPT login (run: codex login)"
+
+    def command_env(self) -> dict[str, str]:
+        """Fresh CODEX_HOME per trial: auth only, zero user config/skills."""
+        home = Path(tempfile.mkdtemp(prefix="cbench-codex-home-"))
+        src = Path.home() / ".codex" / "auth.json"
+        if src.exists():
+            try:
+                shutil.copy2(src, home / "auth.json")
+            except OSError:
+                pass  # API-key auth still works without it
+        self._homes.append(home)
+        return {"CODEX_HOME": str(home)}
 
     def model_flags(self, bare: str, full: str) -> list[str]:
-        # codex exec -m <model>; -c model=... is the fallback for older builds.
-        return ["-m", full]
+        # codex -m takes the bare slug ("gpt-5.6-luna"), not "openai/gpt-5.6-luna".
+        return ["-m", bare]
+
+    # --- transcript parsing (codex exec --json, 0.15x event schema) ---------
 
     def parse_native(self, obj: dict[str, Any]) -> dict[str, Any] | None:
-        # codex exec --json emits {"id","msg":{"type":"agent_message"|...}}
-        msg = obj.get("msg", {})
-        mtype = msg.get("type", obj.get("type"))
-        if mtype == "agent_message":
+        typ = obj.get("type")
+        item = obj.get("item") if isinstance(obj.get("item"), dict) else {}
+        if typ == "thread.started":
+            return {"ts": None, "event": "thread", "thread_id": str(obj.get("thread_id", ""))}
+        if typ == "item.completed" and item:
+            itype = item.get("type")
+            if itype == "agent_message":
+                text = str(item.get("text", ""))
+                return {
+                    "ts": None,
+                    "event": "log",
+                    "text": text[:2000],
+                    "usage": estimate_text_usage(text),
+                    "usage_estimated": True,
+                }
+            if itype == "command_execution":
+                return {
+                    "ts": None,
+                    "event": "tool",
+                    "tool": "bash",
+                    "text": str(item.get("command", ""))[:300],
+                    "usage": {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0},
+                }
+            if itype == "file_change":
+                paths = ",".join(
+                    str(c.get("path", "")) for c in item.get("changes", []) if isinstance(c, dict)
+                )
+                return {
+                    "ts": None,
+                    "event": "tool",
+                    "tool": "edit",
+                    "text": paths[:300],
+                    "usage": {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0},
+                }
+            if itype == "error":
+                return {
+                    "ts": None,
+                    "event": "log",
+                    "text": f"[error] {item.get('message', '')}"[:2000],
+                    "usage": estimate_text_usage(str(item.get("message", ""))),
+                    "usage_estimated": True,
+                }
+            return None
+        if typ == "turn.completed":
+            u = obj.get("usage") if isinstance(obj.get("usage"), dict) else {}
             return {
                 "ts": None,
-                "event": "log",
-                "text": str(msg.get("message", ""))[:2000],
-                "usage": estimate_text_usage(str(msg.get("message", ""))),
-                "usage_estimated": True,
+                "event": "usage",
+                "usage": {
+                    "input_tokens": u.get("input_tokens", 0) or 0,
+                    "output_tokens": u.get("output_tokens", 0) or 0,
+                    "reasoning_tokens": u.get("reasoning_output_tokens", 0) or 0,
+                    "cached_tokens": u.get("cached_input_tokens", 0) or 0,
+                },
+                "usage_estimated": False,
             }
+        # Legacy (pre-0.15) schema, kept for older pinned codex builds.
+        msg = obj.get("msg", {})
+        mtype = msg.get("type", obj.get("type"))
         if mtype == "token_count":
             info = msg.get("info") or {}
             total = info.get("total_token_usage", {})
@@ -259,8 +365,41 @@ class Codex(CLIHarness):
                 },
                 "usage_estimated": False,
             }
-        if mtype == "task_complete":
-            return {"ts": None, "event": "final", "exit": 0}
+        return None
+
+    # --- effective-model proof (SPEC 5.5) ------------------------------------
+
+    def effective_model(self, events: list[dict[str, Any]]) -> str | None:
+        # thread.started -> session rollout file -> turn_context.payload.model
+        thread_id = next((e["thread_id"] for e in events if e.get("thread_id")), None)
+        if thread_id:
+            m = self._model_from_rollout(thread_id)
+            if m:
+                return m
+        return super().effective_model(events)
+
+    def _model_from_rollout(self, thread_id: str) -> str | None:
+        homes = list(self._homes)
+        env_home = os.environ.get("CODEX_HOME")
+        if env_home:
+            homes.append(Path(env_home))
+        homes.append(Path.home() / ".codex")
+        for home in homes:
+            sessions = home / "sessions"
+            if not sessions.exists():
+                continue
+            for p in sorted(sessions.rglob(f"*{thread_id}.jsonl")):
+                try:
+                    for line in p.read_text(encoding="utf-8").splitlines():
+                        if '"turn_context"' not in line:
+                            continue
+                        obj = json.loads(line)
+                        if obj.get("type") == "turn_context":
+                            m = (obj.get("payload") or {}).get("model")
+                            if m:
+                                return str(m)
+                except (OSError, json.JSONDecodeError):
+                    continue
         return None
 
 

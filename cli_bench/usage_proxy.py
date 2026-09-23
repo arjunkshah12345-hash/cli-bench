@@ -19,6 +19,7 @@ PRICE_TABLES: dict[str, dict[str, tuple[float, float, float]]] = {
     "1.0.0": {
         "openai/gpt-5.3": (1.25, 0.125, 10.0),
         "openai/gpt-5-mini": (0.25, 0.025, 2.0),
+        "openai/gpt-5.6-luna": (0.2, 0.02, 1.2),
         "anthropic/claude-opus-4-6": (5.0, 0.5, 25.0),
         "anthropic/claude-sonnet-4-5": (3.0, 0.3, 15.0),
         "google/gemini-3-pro": (1.25, 0.31, 10.0),

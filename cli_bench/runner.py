@@ -187,6 +187,9 @@ def _writer_proc(harness: Harness, ctx: TaskContext) -> subprocess.Popen[str]:
             **ctx.env_vars,
         }
     )
+    # Per-adapter environment sandboxing (e.g. CODEX_HOME pointing at a clean
+    # auth-only copy, so user config/skills cannot leak into a trial).
+    env.update(getattr(harness, "command_env", lambda: {})())
     return subprocess.Popen(  # noqa: S603 - argv list, no shell
         cmd,
         cwd=ctx.workspace,

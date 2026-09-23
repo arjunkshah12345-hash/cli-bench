@@ -107,7 +107,16 @@ def test_real_adapters_append_prompt_argv():
     assert cmd[-1] == "Do the thing."
     assert cmd[0] == "codex" and "exec" in cmd
     # approval flag declared in profile matches the command
-    assert "--full-auto" in cmd
+    assert "--approve-for-me" in cmd
+    # CODEX_HOME sandbox requested by the adapter (auth-only home per trial)
+    assert codex.command_env()["CODEX_HOME"]
+
+
+def test_codex_model_flags_use_bare_slug():
+    codex = get_harness("codex")
+    cmd = codex.build_cmd(_ctx(model="openai/gpt-5.6-luna"))
+    i = cmd.index("-m")
+    assert cmd[i + 1] == "gpt-5.6-luna"  # bare slug, no provider prefix
 
 
 def test_aider_flag_prompt_mode():
@@ -137,24 +146,30 @@ def test_claude_parse_native_usage():
 
 def test_codex_parse_native_token_count():
     codex = get_harness("codex")
+    # Modern (0.15x) schema: turn.completed carries cumulative usage.
     ev = codex.parse_native(
         {
-            "msg": {
-                "type": "token_count",
-                "info": {
-                    "total_token_usage": {
-                        "input_tokens": 10,
-                        "output_tokens": 5,
-                        "reasoning_output_tokens": 3,
-                        "cached_input_tokens": 7,
-                    }
-                },
-            }
+            "type": "turn.completed",
+            "usage": {
+                "input_tokens": 72255,
+                "cached_input_tokens": 53504,
+                "output_tokens": 330,
+                "reasoning_output_tokens": 126,
+            },
         }
     )
-    assert ev["event"] == "usage"
-    assert ev["usage"]["reasoning_tokens"] == 3
-    assert ev["usage"]["cached_tokens"] == 7
+    assert ev["event"] == "usage" and ev["usage_estimated"] is False
+    assert ev["usage"]["input_tokens"] == 72255
+    assert ev["usage"]["cached_tokens"] == 53504
+    assert ev["usage"]["reasoning_tokens"] == 126
+    # thread id is captured for rollout lookup
+    ev2 = codex.parse_native({"type": "thread.started", "thread_id": "abc-123"})
+    assert ev2["event"] == "thread" and ev2["thread_id"] == "abc-123"
+    # legacy schema still parses
+    ev3 = codex.parse_native(
+        {"msg": {"type": "token_count", "info": {"total_token_usage": {"input_tokens": 10, "output_tokens": 5, "reasoning_output_tokens": 3, "cached_input_tokens": 7}}}}
+    )
+    assert ev3["event"] == "usage" and ev3["usage"]["cached_tokens"] == 7
 
 
 def test_parse_transcript_fallback_estimates_usage():
@@ -178,8 +193,6 @@ def test_available_when_env_present(monkeypatch):
     codex = get_harness("codex")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     assert codex.available() is True
-
-
 def test_versions_do_not_crash():
     for h in registry().values():
         v = h.version()
