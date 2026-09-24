@@ -194,6 +194,9 @@ def test_parse_transcript_fallback_estimates_usage():
 
 def test_missing_reason_mentions_env(monkeypatch):
     aider = get_harness("aider")
+    # Simulate the binary being present so the auth gate is what's under test
+    # (aider is not installed on CI runners).
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/aider" if name == "aider" else None)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     assert "missing env" in aider.missing_reason()
@@ -204,6 +207,7 @@ def test_aider_available_with_either_key_alone(monkeypatch):
     """Aider is multi-provider: ONE valid key (for the pinned model's provider)
     must be enough. Regression test for the all-vars auth gate bug."""
     aider = get_harness("aider")
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/aider" if name == "aider" else None)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-openai")
