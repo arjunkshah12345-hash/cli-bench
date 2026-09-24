@@ -1,10 +1,10 @@
-# CLI-Bench — Specification v0.9.0
+# CLI-Bench — Specification v0.9.1
 
 **An apples-to-apples benchmark for agent harnesses** (CLIs like Claude Code, Codex CLI, OpenCode, Cursor Agent, Droid Factory, Gemini CLI, Aider, Goose).
 
 CLI-Bench measures **the harness, not the model**. One model, many harnesses, identical task suite, identical verifiers, identical budget rules. The only variable is the code between the model and the terminal.
 
-**Version:** 0.9.0 · **Status:** Release candidate — see implementation-status notes in §5.2, §5.5, §10 · **Repo:** github.com/arjunkshah12345-hash/cli-bench · **Site:** cli-bench.vercel.app
+**Version:** 0.9.1 · **Status:** Release candidate — see implementation-status notes in §5.2, §5.5, §10 · **Repo:** github.com/arjunkshah12345-hash/cli-bench · **Site:** cli-bench.vercel.app
 
 ---
 
@@ -275,13 +275,13 @@ CHECKSUMS          # sha256 of env/ + verifier.sh, stamped into run.json (I2)
 | perf       | `perf/hot-loop`      | standard | 3 | 10× speedup on a benchmark, semantics preserved |
 | docs       | `docs/api-ref`       | warmup   | 3 | Generate accurate API reference from source (quality probe) |
 
-(Version 0.9.0 ships all 12 wired into the repo, each with verifier + seeds; difficulty tiers and budgets are in each `task.yaml`.)
+(Version 0.9.1 ships all 12 wired into the repo, each with verifier + seeds; difficulty tiers and budgets are in each `task.yaml`.)
 
 ### 6.3 Task-versioning & treadmill policy
 
 Task suites rot. Policy:
 
-1. **Suite version** is semver-pinned in run manifests (`suite: 0.9.0`). Scores cite the suite version.
+1. **Suite version** is semver-pinned in run manifests (`suite: 0.9.1`). Scores cite the suite version.
 2. **Memorization response:** if a task's public reference solution leaks (or we detect seed-level memorization), the task is **retired from scoring** (marked `retired: reason`) and a parameterized successor ships in the next minor suite version. The old suite's leaderboard is frozen, not rewritten.
 3. **Behavioral drift:** task difficulty can silently shift as models improve (tasks get easier over time). Every 6 months the maintainers re-calibrate tier weights on fresh reference-harness runs, or re-cut the suite (major version bump).
 4. **No mid-cycle edits** to `verifier.sh` or prompts within a suite version. Ever. Fixes ship in a new version; the changelog says which entries are re-scored.

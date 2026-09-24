@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cli-bench"
-version = "0.9.0"
+version = "0.9.1"
 description = "An apples-to-apples benchmark for agent harnesses: one model, many CLIs, same tasks, same verifier, same budget."
 readme = "README.md"
 requires-python = ">=3.11"

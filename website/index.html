@@ -219,8 +219,8 @@
     <p class="sub">SWE-bench, Terminal-Bench, and HAL established that <em>the same model scores wildly differently across harnesses</em> — but each either fixes the harness or treats it as a nuisance variable. CLI-Bench makes the harness the <em>subject under test</em>: related work like <a class="mono" style="text-decoration:underline" href="https://github.com/reacher-z/HarnessBench" target="_blank" rel="noopener">HarnessBench</a> and A-Code Bench shares the instinct; CLI-Bench focuses narrowly on coding-agent CLIs with deterministic per-task verification, seeded instances, and anti-gaming probes.</p>
     <div class="grid-3">
       <div class="card"><span class="tag">ceteris paribus</span><h3>Everything held constant</h3><p>Same model per cohort, same task prompt, same shell, same time and token budget, same verifier. The harness is the only independent variable — and the model the CLI actually ran is verified against the request.</p></div>
-      <div class="card"><span class="tag">determinism</span><h3>No LLM-judged anything</h3><p>Verifiers are plain scripts: exit 0 means pass. Every score is reproducible from a committed manifest — no vibes, no judge drift.</p></div>
-      <div class="card"><span class="tag">anti-gaming</span><h3>Houdini probes</h3><p>Four trap tasks detect test mutation, verifier editing, spec hallucination, and peeking at hidden files. Caught gaming and the run is flagged, not ranked.</p></div>
+      <div class="card"><span class="tag">determinism</span><h3>No LLM judge in pass/fail</h3><p>Task verdicts come from plain scripts: exit 0 means pass. The headline score has no judge, no vibes, no drift — a separate code-quality axis (SPEC §4.3) is the only judged number and never feeds CB-HDR.</p></div>
+      <div class="card"><span class="tag">anti-gaming</span><h3>Houdini probes</h3><p>Four trap tasks detect test mutation, verifier editing, spec hallucination, and peeking at hidden files. Run them with <span class="mono">--with-houdini</span>: caught gaming and the run is flagged untrusted, not ranked.</p></div>
     </div>
   </div>
 </section>
@@ -252,14 +252,14 @@
     <div class="kicker">Leaderboard</div>
     <h2>One table. No asterisks.</h2>
     <p class="sub">Submit a run manifest from your own machine; the site renders what the community measured. Every row links its raw artifacts.</p>
-    <div class="lb-note"><span>●</span><span><strong>First measured row is in.</strong> codex @ gpt-5.6-luna, 12 tasks × 3 seeds, suite 0.9.0, $1.38 total spend, every trial's effective model proven from codex's session rollout (SPEC §5.5). Raw artifacts in <span class="mono">results/</span> on GitHub. Rankings begin when the second harness joins this cohort.</span></div>
+    <div class="lb-note"><span>●</span><span><strong>First measured row is in.</strong> codex @ gpt-5.6-luna, 12 tasks × 3 seeds, suite 0.9.1, $1.38 total spend, every trial's effective model proven from codex's session rollout (SPEC §5.5). Raw artifacts in <span class="mono">results/</span> on GitHub. Rankings begin when the second harness joins this cohort.</span></div>
     <div class="table-wrap">
       <table>
         <thead>
           <tr><th>#</th><th>Harness</th><th>Model cohort</th><th>Profile</th><th>CB-HDR ↑</th><th>95% CI</th><th>HDR-C ↑</th><th>HDR</th><th>Pass rate</th><th>$/task</th><th>p50 latency</th><th>Gaming flags</th></tr>
         </thead>
         <tbody>
-          <tr class="rank-1"><td class="num">1</td><td class="mono">codex 0.153</td><td class="mono">gpt-5.6-luna</td><td><span class="pill">guarded</span></td><td class="num bar-cell"><div class="bar-track"><div class="bar-fill" style="width:58%"></div></div>&nbsp;0.580</td><td class="num">[0.28, 0.85]</td><td class="num">1.00*</td><td class="num">0.583</td><td class="num">64%</td><td class="num">$0.038</td><td class="num">93s</td><td class="num">0</td></tr>
+          <tr class="rank-1"><td class="num">1</td><td class="mono">codex 0.153</td><td class="mono">gpt-5.6-luna</td><td><span class="pill">guarded</span></td><td class="num bar-cell"><div class="bar-track"><div class="bar-fill" style="width:59%"></div></div>&nbsp;0.592</td><td class="num">[0.30, 0.86]</td><td class="num">1.00*</td><td class="num">0.583</td><td class="num">64%</td><td class="num">$0.038</td><td class="num">93s</td><td class="num">0</td></tr>
         </tbody>
       </table>
     </div>
@@ -273,17 +273,17 @@
     <h2>12 real tasks. 4 traps.</h2>
     <p class="sub">Every task ships a hermetic environment, seeded variation, and a verifier that re-checks the work on a pristine copy. Prompts are harness-neutral — no tool mentions, no file-path spoilers.</p>
     <div class="task-grid">
-      <div class="task"><div class="id">refactor/deadcode</div><div class="meta"><span>refactor</span><span class="diff-warmup">warmup</span></div></div>
+      <div class="task"><div class="id">refactor/deadcode</div><div class="meta"><span>refactor</span><span class="diff-standard">standard</span></div></div>
       <div class="task"><div class="id">refactor/api-shape</div><div class="meta"><span>refactor</span><span class="diff-hard">hard</span></div></div>
       <div class="task"><div class="id">feature/rate-limiter</div><div class="meta"><span>feature</span><span class="diff-hard">hard</span></div></div>
       <div class="task"><div class="id">feature/csv-normalizer</div><div class="meta"><span>feature</span><span class="diff-standard">standard</span></div></div>
       <div class="task"><div class="id">debug/flaky-test</div><div class="meta"><span>debugging</span><span class="diff-hard">hard</span></div></div>
       <div class="task"><div class="id">debug/wrong-answer</div><div class="meta"><span>debugging</span><span class="diff-standard">standard</span></div></div>
-      <div class="task"><div class="id">tooling/test-gen</div><div class="meta"><span>tooling</span><span class="diff-hard">hard</span></div></div>
+      <div class="task"><div class="id">tooling/test-gen</div><div class="meta"><span>tooling</span><span class="diff-standard">standard</span></div></div>
       <div class="task"><div class="id">data/log-analysis</div><div class="meta"><span>data</span><span class="diff-standard">standard</span></div></div>
       <div class="task"><div class="id">ops/ci-green</div><div class="meta"><span>ops</span><span class="diff-hard">hard</span></div></div>
-      <div class="task"><div class="id">sec/patch-xss</div><div class="meta"><span>security</span><span class="diff-standard">standard</span></div></div>
-      <div class="task"><div class="id">perf/hot-loop</div><div class="meta"><span>perf</span><span class="diff-hard">hard</span></div></div>
+      <div class="task"><div class="id">sec/patch-xss</div><div class="meta"><span>security</span><span class="diff-hard">hard</span></div></div>
+      <div class="task"><div class="id">perf/hot-loop</div><div class="meta"><span>perf</span><span class="diff-standard">standard</span></div></div>
       <div class="task"><div class="id">docs/api-ref</div><div class="meta"><span>docs</span><span class="diff-warmup">warmup</span></div></div>
       <div class="task"><div class="id">houdini/self-test</div><div class="meta"><span>trap</span><span class="diff-frontier">probe</span></div></div>
       <div class="task"><div class="id">houdini/mutation</div><div class="meta"><span>trap</span><span class="diff-frontier">probe</span></div></div>

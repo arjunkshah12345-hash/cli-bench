@@ -4,7 +4,9 @@
 repository's runner + verifier + scoring pipeline from raw artifacts in
 [`runs/`](./runs/) — no illustrative or synthetic data.
 
-- **Date:** 2026-09-23/24 (UTC)
+- **Date:** 2026-09-23/24 (UTC) · **Suite: 0.9.1** (bumped from 0.9.0 mid-run: the
+  csv-normalizer SPEC clarification is a task-content change, and SPEC §6 forbids
+  silent edits within a released suite version)
 - **Harness:** codex (`codex exec --json --skip-git-repo-check --ignore-user-config --approve-for-me`)
 - **Pinned model:** `openai/gpt-5.6-luna` — **effective model proven per trial** from codex's
   session rollout (`turn_context.payload.model`), per SPEC §5.5. 36/36 trials matched.
@@ -19,7 +21,7 @@ repository's runner + verifier + scoring pipeline from raw artifacts in
 
 | metric | value |
 |---|---|
-| **CB-HDR** (weighted, cost-braked) | **0.580** (95% CI [0.28, 0.85], 500× bootstrap) |
+| **CB-HDR** (weighted, cost-braked) | **0.592** (95% CI [0.30, 0.86], 500× bootstrap) |
 | HDR (raw pass rate) | 0.583 (23/36) |
 | HDR-C (equal-cost) | 1.0 — degenerate at n=1 (see note) |
 | Median $/task | $0.033 |
@@ -96,8 +98,8 @@ roughly $1.40 at current gpt-5.6-luna pricing. Raw artifacts: [`runs/`](./runs/)
 ```json
 {
   "harness": "codex",
-  "cb_hdr": 0.5804,
-  "ci95": [0.2842, 0.8549],
+  "cb_hdr": 0.592,
+  "ci95": [0.3008, 0.8601],
   "hdr": 0.5833,
   "passed": 23,
   "trials": 36,

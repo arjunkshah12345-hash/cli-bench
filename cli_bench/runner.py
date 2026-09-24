@@ -202,16 +202,42 @@ def _writer_proc(harness: Harness, ctx: TaskContext) -> subprocess.Popen[str]:
     )
 
 
-def _estimate_cost_so_far(raw_lines: list[str], model: str) -> tuple[float, dict[str, int]]:
-    usage = {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0}
-    for line in raw_lines:
-        est = estimate_usage_from_text(line)
-        for k in usage:
-            usage[k] += est[k]
+def _estimate_cost_so_far(
+    harness: Harness, raw_lines: list[str], model: str
+) -> tuple[float, dict[str, int], bool]:
+    """Cost-so-far for live budget enforcement.
+
+    Uses the adapter's native parsing (turn.completed events etc.) whenever it
+    yields real usage, so the kill decision uses the same accounting as final
+    scoring; falls back to the chars/4 text estimate only for harnesses with
+    no native reporting. Returns (cost_usd, usage, is_native).
+    """
+    transcript = harness.parse_transcript(raw_lines)
+    native_usage = {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0}
+    native = False
+    for ev in transcript:
+        u = ev.get("usage")
+        if isinstance(u, dict) and not ev.get("usage_estimated", False):
+            native = True
+            for k in native_usage:
+                native_usage[k] += int(u.get(k, 0))
+    if native:
+        usage = native_usage
+    else:
+        usage = {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0}
+        for line in raw_lines:
+            est = estimate_usage_from_text(line)
+            for k in usage:
+                usage[k] += est[k]
     try:
-        return cost_usd(usage, model), usage
+        return cost_usd(usage, model), usage, native
     except KeyError:
-        return 0.0, usage
+        return 0.0, usage, native
+
+
+def _native_capable(harness: Harness) -> bool:
+    """True when the adapter is documented to emit native usage events."""
+    return harness.profile.transcript_fidelity == "native"
 
 
 def run_task(
@@ -277,8 +303,16 @@ def run_task(
                     last_usage_poll = now
                     raw_lines = proc._cbench_stdout  # type: ignore[attr-defined]
                     if len(raw_lines) < MAX_TRANSCRIPT_LINES:
-                        est_cost, _ = _estimate_cost_so_far(raw_lines, model)
-                        if task.max_cost_usd > 0 and est_cost > task.max_cost_usd:
+                        est_cost, _, native_seen = _estimate_cost_so_far(harness, raw_lines, model)
+                        # Only enforce against native usage (or when no budget set):
+                        # text estimates are noise for verbose harnesses. One grace
+                        # poll after native usage first appears lets the first turn
+                        # events land before we trust them.
+                        if (
+                            task.max_cost_usd > 0
+                            and (native_seen or _native_capable(harness))
+                            and est_cost > task.max_cost_usd
+                        ):
                             cost_killed = True
                             break
                 time.sleep(POLL_INTERVAL_S)

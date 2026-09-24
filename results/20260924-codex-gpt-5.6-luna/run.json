@@ -3,7 +3,7 @@
   "created": "2026-09-24T02:10:00+00:00",
   "model": "openai/gpt-5.6-luna",
   "backend": "local",
-  "suite_version": "0.9.0",
+  "suite_version": "0.9.1",
   "suite_dir": "/Users/arjunkshah21/Downloads/cli-bench/suite",
   "seeds": 3,
   "harnesses": [
@@ -15,63 +15,141 @@
     "machine": "arm64"
   },
   "task_meta": {
-    "docs/api-ref": {
-      "weight": 0.9,
-      "time_budget_s": 360,
-      "max_cost_usd": 0.4
-    },
-    "refactor/deadcode": {
-      "weight": 1.5625,
-      "time_budget_s": 480,
-      "max_cost_usd": 0.6
-    },
-    "feature/csv-normalizer": {
-      "weight": 1.5625,
-      "time_budget_s": 480,
-      "max_cost_usd": 0.6
-    },
-    "perf/hot-loop": {
-      "weight": 1.25,
-      "time_budget_s": 600,
-      "max_cost_usd": 0.8
-    },
-    "tooling/test-gen": {
+    "data/log-analysis": {
       "weight": 1.375,
-      "time_budget_s": 600,
-      "max_cost_usd": 0.8
+      "time_budget_s": 480,
+      "max_cost_usd": 0.6,
+      "checksums": {
+        "verifier.sh": "a8293eae7a9e7c0d9936948be9ae2d1534cc94e0f5f618800a28daf4c13fbef3",
+        "env/QUESTIONS.md": "b94f6d6a0fbe08af6eecc731ef41370484665a9bf006184c427748cfdd6a4bcd"
+      }
     },
     "debug/flaky-test": {
       "weight": 1.7999999999999998,
       "time_budget_s": 600,
-      "max_cost_usd": 0.8
+      "max_cost_usd": 0.8,
+      "checksums": {
+        "verifier.sh": "601fd9718728be69f1f58856c24b28fbddfd9fb12f7c8199b3aaf31a8b8559c9",
+        "env/jobs.py": "bbeb6beea9f5af52c6ded67c0bc387c902968f24cdd6dbfcc7a70de53519d75a",
+        "env/tests/test_pipeline.py": "2e73c2f4e1481479807052fc5481b9408f4fa87ca848c06c11f8152f53b51f43"
+      }
+    },
+    "debug/wrong-answer": {
+      "weight": 1.5,
+      "time_budget_s": 480,
+      "max_cost_usd": 0.6,
+      "checksums": {
+        "verifier.sh": "e638a758c093a687360f5f26c11cc1694f6d77edf8d63eada03c86e04083464b",
+        "env/stats.py": "f9ecf7b2200bba37fc53897032185001c52892ab4bf6cd3c61e914a3a2e5adc5",
+        "env/tests/test_stats.py": "0637437958625003a0a83aa3688ec8e69ef866e5fa24ca1a95372f1f50cffad6"
+      }
+    },
+    "docs/api-ref": {
+      "weight": 0.9,
+      "time_budget_s": 360,
+      "max_cost_usd": 0.4,
+      "checksums": {
+        "verifier.sh": "c80e23e04ad2a08dc8f17ba6a82cd72dfc26ede94fdd74906739e4c2f4922282",
+        "env/library.py": "3283fd6fb960dd0c7ce082dbeeb83e2f4a3b58125982d4a23dd824c681a5dacf"
+      }
+    },
+    "feature/csv-normalizer": {
+      "weight": 1.5625,
+      "time_budget_s": 480,
+      "max_cost_usd": 0.6,
+      "checksums": {
+        "verifier.sh": "6b0f81142a564c14f44eb363490f62b7c4800eda53e035d2bfaa4ce57a6b981c",
+        "env/data/SPEC.md": "3aec194fabaadab228c7678914caa8882cd9badb28d73652a349dafc124ba451"
+      }
     },
     "feature/rate-limiter": {
       "weight": 1.875,
       "time_budget_s": 720,
-      "max_cost_usd": 1.0
+      "max_cost_usd": 1.0,
+      "checksums": {
+        "verifier.sh": "40d0b74f87c6447093d1592888b25715fb1c03872e07490694fb0ebf516f1b41",
+        "env/tests/test_limiter.py": "f3866f02da9e30a540644377927671dbb8cfee160823d274eacd543461ff7c95"
+      }
     },
     "ops/ci-green": {
       "weight": 1.5,
       "time_budget_s": 720,
-      "max_cost_usd": 1.0
+      "max_cost_usd": 1.0,
+      "checksums": {
+        "verifier.sh": "0c44d5ea0cc047766ef1d0e87d5b5f64317a6de819800b0c1c6532cebbf1ec7d",
+        "env/ci/run_all.sh": "f5fd3452c53bee3ab3ce0310d5ddc102875a1adac3faa7687959275f8cfe7560",
+        "env/mathutils/__init__.py": "933af0a6d39c5edfd2002aa68c88e82465dfc14b2a7486974289e9470abfd185",
+        "env/mathutils/pretty.py": "b28deb4d42e96997920e0746ee5c8b29603d7344b67e5adb7118b570aa77fe5e",
+        "env/pyproject.toml": "c6a8ae9fcdb91c85b283474b30c50fe8ae875c8340d49b6e2b7ddcda522d8030",
+        "env/src/other_module.py": "3de897be908a384e76dc5ad0ae52190f25a9591b17b3fd81d78ea0b5762d0d5c",
+        "env/src/pkg_with_deps.py": "60301f1760f4297773015795dd9e89e795cdf19917058fddd0d6a4dbf813495b",
+        "env/tests/conftest.py": "d37d8b0d1f48f2ee19717581ab7701326be0fae4d6c531b9ca131cfd03674833",
+        "env/tests/test_core.py": "4ca1eb435338a16e3c370597193e09d073038b876214f9d224facf77e4940a97",
+        "env/tests/test_export.py": "f59f61b81131c40382e8f83e0f6d3493036cf78a3bc532137d8caaa1f8b7e8f0",
+        "env/tests/test_export_orig.py": "7e4d2815f10da2fdcd1327e39a99e96584952a8df00dbdc452d6baf7eeabf0f8",
+        "env/tests/test_matrix_config.py": "dce178072de7ced28873b2e0145b02e80b74b411e73aa291283c3f55f7aaa658"
+      }
+    },
+    "perf/hot-loop": {
+      "weight": 1.25,
+      "time_budget_s": 600,
+      "max_cost_usd": 0.8,
+      "checksums": {
+        "verifier.sh": "d7e9effe241e00c2109cc14b716c8ce5c5739775ee769dedcef48d0136884df2",
+        "env/matrix_ops.py": "8a3bdd21dad27d513084c45aa974b61e95332f27dd05f98a5a21405bee6e5d98",
+        "env/tests/test_correctness.py": "d0f7776bb48847d639aab8bfbab9a8280b8807d89a6573643aa146664e0a8181"
+      }
     },
     "refactor/api-shape": {
       "weight": 1.875,
       "time_budget_s": 720,
-      "max_cost_usd": 1.0
+      "max_cost_usd": 1.0,
+      "checksums": {
+        "verifier.sh": "f249dff09426add30111b05115bb7e3e5cc23092dd416c527df5db7c64a33e56",
+        "env/pkg/__init__.py": "e80fc93372e9c8d6a74fe97be6853b261a6442634bcc3493c835265b9888a378",
+        "env/pkg/geometry.py": "7612dc84651b26afedfbbb2343a13d1040abdb5a32b91a175108878ca2afa38f",
+        "env/sites/__init__.py": "61bb1f165debf492242280efae5fd5b662de094bd4775f17373fd15d2da5bb87",
+        "env/sites/a_report.py": "e5bdd0221f26594eae447baf30a28ed5029c806af35b6f5ec387590228abae79",
+        "env/sites/b_summary.py": "3f977c7393a71c8c1deedc13e4ed50aa69bbc61dbad7c6424016d986bdd4f32e",
+        "env/sites/c_export.py": "124934d91ba34152838af4f74345ae0b632845a2af727b0b82d661f492378e0f",
+        "env/sites/d_batch.py": "d24d1e9f39c02615abee536bcc1a05f1a02091080ef28e28974d68db56e1a6a4",
+        "env/sites/e_cli.py": "e14f6f41d2afc5beed21ed6b7b36846a84136bf01df92cc71aea4d22d53649fb",
+        "env/tests/test_migration.py": "981c07dfc9d94c706e116aec482d70ebd324255352984fc05c6ff66fc2957b55"
+      }
     },
-    "data/log-analysis": {
-      "weight": 1.375,
+    "refactor/deadcode": {
+      "weight": 1.5625,
       "time_budget_s": 480,
-      "max_cost_usd": 0.6
+      "max_cost_usd": 0.6,
+      "checksums": {
+        "verifier.sh": "802327cb91672cd93c7a6e23007e9ae2b8a5f3a0bf7b998bad82020002db0326",
+        "env/app.py": "45f311f13b11e489c8443fa6e9da6862bfcddc1573241e419d5e695608ba2d2e",
+        "env/tests/test_app.py": "64ab80fdbf5565353d78e878b71979c7bb5e3b0194b070a9e5d7ada4fb38842d"
+      }
     },
     "sec/patch-xss": {
       "weight": 1.5,
       "time_budget_s": 600,
-      "max_cost_usd": 0.8
+      "max_cost_usd": 0.8,
+      "checksums": {
+        "verifier.sh": "ab3b4274e7b0a4a033f6ddffb8568dc4df40f3c3d425db3bc70880475c14e0d9",
+        "env/app.py": "dea72805724f433c6dbdee9199301eed38925a95691d0a1c26d169a41be62ab0",
+        "env/tests/test_exploit.py": "45174140b2c4993585ed62ac808b7a70f28a669872451e97d62509cd9c077ce2"
+      }
+    },
+    "tooling/test-gen": {
+      "weight": 1.375,
+      "time_budget_s": 600,
+      "max_cost_usd": 0.8,
+      "checksums": {
+        "verifier.sh": "531490e9195cf90d2dad184ddd102f5b4eb719a40c2c7219563727145eab9765",
+        "env/tests/test_smoke.py": "6ffa74b2773c257ed94cb12cb4c7901a15fd5f7d568db7ced5c042e4de491469",
+        "env/textproc.py": "bed594a70baa4f303c05c0aeb2d3f783225fa166c69287c8da5976e183d867d4"
+      }
     }
   },
   "price_table": "1.0.0",
   "allow_incompatible": false,
-  "note": "Consolidated from per-task chunk runs (2026-09-23/24), one batch per task pair due to session process reaping. All 36 trials: codex @ openai/gpt-5.6-luna, local backend, suite 0.9.0, seeds {0,1,2}. feature/csv-normalizer ran after SPEC clarification (title-case apostrophe rule made explicit)."
+  "note": "Consolidated from per-task chunk runs (2026-09-23/24), one batch per task pair due to session process reaping. All 36 trials: codex @ openai/gpt-5.6-luna, local backend, suite 0.9.0, seeds {0,1,2}. feature/csv-normalizer ran after SPEC clarification (title-case apostrophe rule made explicit).",
+  "manifest_note": "task_meta completed from suite 0.9.1 (was missing debug/wrong-answer; weights now cover all 12 scored tasks). Suite bumped 0.9.0 -> 0.9.1 per SPEC \u00a76 (mid-cycle csv-normalizer SPEC clarification during the measured run)."
 }

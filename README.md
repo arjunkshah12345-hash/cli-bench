@@ -8,7 +8,7 @@
 
 One model. Many CLIs. Same tasks, same verifier, same budget. Measure the harness, not the model.
 
-[![Suite](https://img.shields.io/badge/suite-0.9.0-000000)](SPEC.md)
+[![Suite](https://img.shields.io/badge/suite-0.9.1-000000)](SPEC.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-000000)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-000000)](#)
 [![Score types](https://img.shields.io/badge/score-CB%2DHDR%20·%20HDR%20·%20HDR%2DC-000000)](#the-two-scores)
@@ -44,7 +44,7 @@ CLI-Bench keeps the headline number honest and makes every trade-off visible:
 
 Plus reported axes that never hide trade-offs: wall time, tokens (in/out/reasoning/cached), turns, retry churn, and a code-quality probe judged blind on diffs only. Full formulas and worked examples: [SPEC.md §4](SPEC.md#4-the-metric-system).
 
-## Suite v0.9.0 — 12 tasks × 3 seeds
+## Suite v0.9.1 — 12 tasks × 3 seeds
 
 | Category  | Task                     | Tier     | What it measures                                |
 | --------- | ------------------------ | -------- | ----------------------------------------------- |
@@ -99,7 +99,7 @@ We publish these on the website because they change how you should read every nu
 2. **Estimated tokens** — harnesses without usage reporting get ±10–20% estimated costs; comparisons within the estimate class are fair.
 3. **Task coverage** — 12 tasks × 3 seeds ranks harnesses with CIs; it cannot resolve sub-point deltas. We bootstrap CIs and refuse to discuss smaller gaps.
 4. **Snapshots beat aliases** — harnesses that can't pin a model snapshot are flagged `provisional`.
-5. **Results, verifiably** — the first measured cohort cell is committed: codex @ gpt-5.6-luna, 12 tasks × 3 seeds, CB-HDR 0.580 (see [`results/20260924-codex-gpt-5.6-luna/`](results/20260924-codex-gpt-5.6-luna/README.md) with per-task breakdowns and raw per-trial artifacts). Your runs slot into the same format.
+5. **Results, verifiably** — the first measured cohort cell is committed: codex @ gpt-5.6-luna, 12 tasks × 3 seeds, CB-HDR 0.592, suite 0.9.1 (see [`results/20260924-codex-gpt-5.6-luna/`](results/20260924-codex-gpt-5.6-luna/README.md) with per-task breakdowns and raw per-trial artifacts). Your runs slot into the same format.
 
 ## Repository layout
 

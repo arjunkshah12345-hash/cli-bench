@@ -1,4 +1,10 @@
-# Suite v0.9.0
+# Suite v0.9.1
+
+> **0.9.0 → 0.9.1:** `feature/csv-normalizer` SPEC clarified mid-0.9.0 (apostrophe
+> title-casing made explicit). Per SPEC §6, task-content fixes bump the suite
+> version; the 0.9.1 suite is frozen and every task's checksums ship in run
+> manifests.
+
 
 12 scored tasks + 4 Houdini anti-gaming probes. Layout per task:
 

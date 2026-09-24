@@ -176,7 +176,8 @@ def test_score_group_excludes_never_passed_tasks():
         {"ok": {"weight": 1.0}, "doomed": {"weight": 1.0}},
     )
     scored = score_group(group, envelope_factor=1.0)
-    assert scored["p50_spend"]["doomed"] == 0
+    # 'doomed' has no passer → excluded from p50_spend entirely (now zero-p50 maps omitted)
+    assert "doomed" not in scored["p50_spend"]
     rows = {r["harness"]: r for r in scored["leaderboard"]}
     # doomed excluded from HDR-C denominators: a passes ok (within envelope), b doesn't
     # (envelope(ok) = 1.0 × p50(10) = 10 → a in, b out)
@@ -198,7 +199,7 @@ def test_load_run_group_roundtrip(tmp_path):
                 "suite_version": "1.0.0",
                 "backend": "local",
                 "created": "now",
-                "task_meta": {},
+                "task_meta": {"alpha": {"weight": 1.0}},
             }
         )
     )

@@ -191,21 +191,32 @@ def score_group(group: RunGroup, n_bootstrap: int = 500, envelope_factor: float 
         tid: token_budget_from_meta(group.task_meta.get(tid, {}), group.model, group.price_table)
         for tid in tasks
     }
+    # Houdini probes gate integrity; they never contribute to CB-HDR/HDR.
+    houdini_tasks = {tid for tid in tasks if tid.startswith("houdini/")}
+    scored_tasks = [tid for tid in tasks if tid not in houdini_tasks]
 
     rows: list[dict[str, Any]] = []
     for h in harnesses:
         h_trials = [t for t in group.trials if t.harness == h]
         weighted = []
         weights = []
-        for tid in tasks:
-            w = float(group.task_meta.get(tid, {}).get("weight", 1.0))
+        for tid in scored_tasks:
+            # Weights are not optional: a missing entry is a manifest defect.
+            # (Silently defaulting to 1.0 once published a wrong headline score.)
+            meta = group.task_meta.get(tid)
+            if not meta or "weight" not in meta:
+                raise ValueError(
+                    f"task_meta missing weight for {tid!r} — run.json predates the "
+                    "full-manifest runner; re-run with the current cbench version"
+                )
+            w = float(meta["weight"])
             s = _median_seed_score(group.trials, h, tid, p50s[tid], budgets[tid])
             weighted.append(w * s)
             weights.append(w)
         cb_hdr = sum(weighted) / sum(weights) if weights else 0.0
 
         hdrs = []
-        for tid in tasks:
+        for tid in scored_tasks:
             per_seed: dict[int, int] = {}
             for t in h_trials:
                 if t.task_id == tid and t.outcome in COUNTED_OUTCOMES:
@@ -214,7 +225,7 @@ def score_group(group: RunGroup, n_bootstrap: int = 500, envelope_factor: float 
                 hdrs.append(1.0 if statistics.median(per_seed.values()) else 0.0)
         hdr = statistics.mean(hdrs) if hdrs else 0.0
 
-        hdr_c, hdr_c_tasks = _hdr_c(group.trials, h, tasks, envelope_factor)
+        hdr_c, hdr_c_tasks = _hdr_c(group.trials, h, scored_tasks, envelope_factor)
 
         rows.append(
             {
@@ -241,17 +252,17 @@ def score_group(group: RunGroup, n_bootstrap: int = 500, envelope_factor: float 
     by_task: dict[str, dict[str, float]] = {}
     for h in harnesses:
         by_task[h] = {}
-        for tid in tasks:
+        for tid in scored_tasks:
             by_task[h][tid] = _median_seed_score(group.trials, h, tid, p50s[tid], budgets[tid]) * float(
-                group.task_meta.get(tid, {}).get("weight", 1.0)
+                group.task_meta[tid]["weight"]
             )
-    weights = [float(group.task_meta.get(tid, {}).get("weight", 1.0)) for tid in tasks]
+    weights = [float(group.task_meta[tid]["weight"]) for tid in scored_tasks]
     cis: dict[str, list[float]] = {}
     for h in harnesses:
         samples: list[float] = []
         for _ in range(n_bootstrap):
-            idx = [rng.randrange(len(tasks)) for _ in range(len(tasks))]
-            num = sum(by_task[h][tasks[i]] for i in idx)
+            idx = [rng.randrange(len(scored_tasks)) for _ in range(len(scored_tasks))]
+            num = sum(by_task[h][scored_tasks[i]] for i in idx)
             den = sum(weights[i] for i in idx)
             samples.append(num / den if den else 0.0)
         samples.sort()
@@ -270,7 +281,7 @@ def score_group(group: RunGroup, n_bootstrap: int = 500, envelope_factor: float 
         "created": group.created,
         "envelope_factor": envelope_factor,
         "leaderboard": rows,
-        "p50_spend": {tid: int(p50s[tid]) for tid in tasks},
+        "p50_spend": {tid: int(p50s[tid]) for tid in scored_tasks if p50s[tid] > 0},
     }
 
 

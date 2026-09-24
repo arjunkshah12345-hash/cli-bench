@@ -18,7 +18,7 @@ For each task `t` and harness `i`:
 Properties worth internalizing:
 
 - **Passing cheaply is full credit.** The brake never rewards slowness; it only discounts extravagance. A harness that passes at half the median spend earns the same 1.0 as one at exactly median — we do not reward speed on the primary axis, we publish time separately. This is deliberate: brake constants that reward sub-median spend turn the benchmark into a latency race and punish thorough harnesses.
-- **The brake is smooth.** At 2× median you keep ~50%; at 5× you approach the floor. There is no cliff, so run-to-run noise cannot swing a harness between full and zero credit.
+- **The brake is smooth.** Full credit anywhere up to 5× the passer median (a deliberate noise-tolerance band); beyond that it decays linearly — 10× median → 0.5, 25× median → 0.2. There is no cliff below the band, so run-to-run noise cannot swing a harness between full and zero credit.
 - **Failures are zero regardless of spend.** Burning 10× tokens and failing is still zero. The brake only shapes credit among passers.
 - **p50 is cross-harness by construction.** You are compared against what your peers needed, not against a fixed bar that rot as models improve.
 

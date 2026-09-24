@@ -150,15 +150,19 @@ def load_task(task_dir: Path) -> Task:
     )
 
 
-def load_suite(suite_dir: Path) -> list[Task]:
-    """Load every task under suite/, skipping houdini probes (they run via --with-houdini)."""
+def load_suite(suite_dir: Path, include_houdini: bool = False) -> list[Task]:
+    """Load every scored task under suite/.
+
+    Houdini anti-gaming probes are excluded by default (they gate, not score);
+    pass include_houdini=True (CLI: --with-houdini) to append them.
+    """
     suite_dir = suite_dir.resolve()
     if not suite_dir.exists():
         raise FileNotFoundError(f"suite dir not found: {suite_dir}")
     tasks: list[Task] = []
     for task_yaml in sorted(suite_dir.glob("*/*/task.yaml")):
         task = load_task(task_yaml.parent)
-        if task.id.startswith("houdini/"):
+        if task.id.startswith("houdini/") and not include_houdini:
             continue
         tasks.append(task)
     if not tasks:
