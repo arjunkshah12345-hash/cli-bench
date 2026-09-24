@@ -94,22 +94,44 @@ Harnesses are run **headless/non-interactive** with a single task prompt (the sa
 CB-HDR is the headline number. It is deliberately simple and cannot be gamed by trading money for time.
 
 ```
-CB-HDR_i  =  Σ_t  1[task t passed]  ·  R(t, i)  /  Σ_t  R(t, i)          (weight-normalized pass rate)
+CB-HDR_i  =  Σ_t  w(t) · S(t, i)  /  Σ_t  w(t)          (weight-normalized pass rate)
 
-R(t, i)     =  w_category(t) · w_difficulty(t) · B(t, i)
+w(t)        =  w_category(t) · w_difficulty(t)
+S(t, i)     =  median over seeds of the per-seed credit of harness i on task t
+
+per-seed credit =  B(t, i)   if harness i passed task t on that seed
+                 =  0        otherwise
 
 B(t, i)     =  min(1, b_ref(t) / b_i(t))       ∈ (0, 1]     — the efficiency brake
 
 b_i(t)      =  actual resource spend by harness i on task t
-p50         =  median b across harnesses that passed t
-b_ref(t)    =  b at which the brake saturates: b_ref(t) = 5 × p50 (clamped to the task budget, never below p50)
+p50(t)      =  median b across ALL harnesses that passed t (the cohort passer median)
+b_ref(t)    =  b at which the brake saturates: b_ref(t) = 5 × p50(t) (clamped to the task budget, never below p50(t))
 w_category  ∈ [0.75, 1.5]   (task category weight; spec table below)
 w_difficulty ∈ {1.0, 1.25, 1.5, 1.75}  for tiers {warmup, standard, hard, frontier}
 ```
 
+Note the normalization: the denominator is the **static sum of task weights** — it does not contain the brake. `R = w · B` is the per-task *credit*; dividing by Σw keeps a failed task at exactly 0 and a full-band pass at exactly its task weight. (An earlier draft normalized by Σ(w·B), which inflates scores for spend-heavy harnesses and is wrong.)
+
 **The brake B.** A harness that passes within the saturation band — spend ≤ 5× the passer median (or under the task budget, if computed) — earns **full credit**: the formula is `min(1, 5·p50 / spend)`, so at 2× median a pass still scores 1.0. Beyond 5× median the brake decays linearly: 10× median → 0.5, 25× median → 0.2. This is a deliberate tolerance band, not a reward for extravagance: a 1.9× pass is real capability and noise in that range should not reorder the leaderboard; the band only discounts *extraordinary* overspend. The brake multiplies the task weight so it can only pull a harness down, never up.
 
 The implemented CB-HDR is therefore a **token-braked weighted pass rate**. Latency and diff-churn are *published as separate columns*, never folded into the headline number — compositing them is deferred (§4.3) until real run data can justify the constants.
+
+#### 4.1b HDR-C: the equal-cost pass rate
+
+HDR-C answers one question: *how much of the pass rate survives when every harness is held to the same per-task budget bar?* It is deliberately plain:
+
+```
+envelope(t) = X · p50(t)          X = 1.0 (published in every leaderboard manifest)
+
+HDR-C_i     =  |{ t : harness i passed t  AND  median spend of its passing seeds ≤ envelope(t) }|
+               ÷ |{ t : p50(t) > 0 }|          (tasks with no passer in the cohort are excluded)
+```
+
+- The bar is the **cohort passer median per task** — identical for every harness on that task — so scores are comparable across manifests and machines.
+- Credit uses the **median spend across a harness's own passing seeds**, matching the median-over-seeds aggregation of CB-HDR/HDR. One lucky cheap seed cannot launder two expensive ones.
+- X = 1.0 by default: a harness keeps credit for a pass whose typical cost is at or under what a passer typically spends. There is no partial credit and no cross-task averaging inside the envelope.
+- HDR-C is **n/a** for a group with fewer than two harnesses' worth of data in practice (the bar degenerates to the harness's own median); it becomes meaningful the moment a second harness joins the cohort.
 
 - **b = tokens_total** by default (input + output, includes reasoning tokens; cache-read tokens count at a 0.1× discount since they are genuinely cheaper and cache friendliness is a real harness skill).
 - Alternatively `b = wall_time` for latency-class leaderboards, using the same formula. Cost-USD may be used as `b` for cross-provider comparisons (it normalizes token prices), but token-based braking is the default because it is price-independent. The task's `max_cost_usd` budget additionally tightens the saturation point (converted to tokens via the pinned price table, SPEC §5.1) so a harness cannot brute-force a pass under a token-cheap model.
@@ -339,18 +361,26 @@ class Harness(Protocol):
 Task `debug/flaky-test` (difficulty `hard`, category `debugging` ⇒ weights 1.5 × 1.2 = 1.8). Suppose 4 harnesses pass, with token spend:
 
 ```
-h1: 410k   h2: 890k   h3: 1.6M   h4: 2.4M   →  p50 = median(410k, 890k, 1.6M, 2.4M) = (890k+1.6M)/2 = 1.245M
-b_ref = 5 × 1.245M = 6.225M   (under the task budget cap, so no clamping)
+h1: 250k   h2: 500k   h3: 1.5M   h4: 7.5M
+p50   = median(250k, 500k, 1.5M, 7.5M) = (500k + 1.5M) / 2 = 1.0M   (cohort passer median)
+b_ref = 5 × p50 = 5.0M   (under the task budget cap, so no clamping)
 
-h1: B = min(1, 1.245M/410k)  = 1.0        (capped — h1 was FASTER than median)
-h2: B = min(1, 1.245M/890k)  = 1.0        (≈ median, no brake)
-h3: B = 1.245M/1.6M          = 0.78       (2× the min, still fine)
-h4: B = 1.245M/2.4M          = 0.52       (braked, but not erased — it did pass)
+h1: B = min(1, 5.0M/250k)  = 1.0    (capped — well inside the saturation band)
+h2: B = min(1, 5.0M/500k)  = 1.0    (capped)
+h3: B = min(1, 5.0M/1.5M)  = 1.0    (capped — 1.5× median is noise, full credit)
+h4: B = min(1, 5.0M/7.5M)  = 0.67   (5× median: braked, not erased — it did pass)
 
-A harness that FAILED the task: R = 0 regardless of spend.
+A 10M spender would earn B = 0.5; a failed pass earns credit 0 regardless of spend.
 ```
 
-CB-HDR per harness = Σ (1.8 × B) over tasks ÷ Σ 1.8 over tasks, then averaged over seeds per task before summing (median across seeds first).
+Per §4.1: `CB-HDR_i = Σ_t w(t) · S(t,i) ÷ Σ_t w(t)`, where `S(t,i)` is the median
+over seeds of the per-seed credit (`w(t) · B` on passes, 0 otherwise). On this task
+with all seeds passing: h1–h3 earn 1.8 each, h4 earns 1.8 × 0.67 = 1.2.
+
+For HDR-C on the same task (§4.1b): `envelope = 1.0 × 1.0M`. h1 (250k) and h2
+(500k) pass the bar; h3 (1.5M) and h4 (7.5M) do not — even though h3 keeps full
+CB-HDR credit. The equal-cost bar is stricter than the brake by design: it asks
+"would this pass still count if everyone had to pay the median price?"
 
 ## Appendix B — Glossary
 

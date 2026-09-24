@@ -240,8 +240,8 @@
       <div class="card"><span class="tag">χ · churn</span><h3>Diff churn, published</h3><p>Lines touched are reported per task — surgical agents are visible without an invented churn constant in the score.</p></div>
     </div>
     <div class="grid-3" style="margin-top:16px">
-      <div class="card"><span class="tag">HDR-C</span><h3>Capability, unbraked</h3><p>The same weighted score with β, τ, χ disabled — the raw "can it solve it at all" view. Published next to CB-HDR so efficiency and capability never blur.</p></div>
-      <div class="card"><span class="tag">CIs</span><h3>Bootstrap confidence</h3><p>2 seeds × 2 runs per task; percentile bootstrap over trials gives every score an interval. Rankings that overlap aren't rankings.</p></div>
+      <div class="card"><span class="tag">HDR-C</span><h3>Equal-cost pass rate</h3><p>Per task, one budget bar for every harness: the cohort's passer-median spend. A pass keeps credit only if its median cost lands under the bar — so a spend-heavy harness can't buy the same score. Published next to CB-HDR so capability and efficiency never blur.</p></div>
+      <div class="card"><span class="tag">CIs</span><h3>Bootstrap confidence</h3><p>12 tasks × 3 seeds; percentile bootstrap over trials gives every score an interval. Rankings that overlap aren't rankings.</p></div>
       <div class="card"><span class="tag">profiles</span><h3>Declared agency</h3><p>Every adapter declares its approval mode, sandbox, and flags in a machine-readable profile. A max-agency run can never be silently compared to a guarded one.</p></div>
     </div>
   </div>
@@ -259,11 +259,11 @@
           <tr><th>#</th><th>Harness</th><th>Model cohort</th><th>Profile</th><th>CB-HDR ↑</th><th>95% CI</th><th>HDR-C ↑</th><th>HDR</th><th>Pass rate</th><th>$/task</th><th>p50 latency</th><th>Gaming flags</th></tr>
         </thead>
         <tbody>
-          <tr class="rank-1"><td class="num">1</td><td class="mono">codex 0.153</td><td class="mono">gpt-5.6-luna</td><td><span class="pill">guarded</span></td><td class="num bar-cell"><div class="bar-track"><div class="bar-fill" style="width:58%"></div></div>&nbsp;0.580</td><td class="num">[0.28, 0.85]</td><td class="num">—</td><td class="num">0.583</td><td class="num">64%</td><td class="num">$0.038</td><td class="num">93s</td><td class="num">0</td></tr>
+          <tr class="rank-1"><td class="num">1</td><td class="mono">codex 0.153</td><td class="mono">gpt-5.6-luna</td><td><span class="pill">guarded</span></td><td class="num bar-cell"><div class="bar-track"><div class="bar-fill" style="width:58%"></div></div>&nbsp;0.580</td><td class="num">[0.28, 0.85]</td><td class="num">1.00*</td><td class="num">0.583</td><td class="num">64%</td><td class="num">$0.038</td><td class="num">93s</td><td class="num">0</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="caption" style="margin-top:12px">Measured 2026-09-24 · one cohort cell, not a ranking · HDR-C is n/a for a single-harness group · 0 sabotage flags, 0 crashes, native token accounting. Per-task breakdown and verifier evidence in <a class="mono" href="https://github.com/arjunkshah12345-hash/cli-bench/tree/main/results/20260924-codex-gpt-5.6-luna">results/20260924-codex-gpt-5.6-luna</a>.</p>
+    <p class="caption" style="margin-top:12px">Measured 2026-09-24 · one cohort cell, not a ranking · *HDR-C saturates at 1.0 for a single-harness group (the bar is its own median) — meaningful from the second harness on · 0 sabotage flags, 0 crashes, native token accounting. Per-task breakdown and verifier evidence in <a class="mono" href="https://github.com/arjunkshah12345-hash/cli-bench/tree/main/results/20260924-codex-gpt-5.6-luna">results/20260924-codex-gpt-5.6-luna</a>.</p>
   </div>
 </section>
 

@@ -87,6 +87,8 @@ class CLIHarness(CommandHarness):
     def available(self) -> bool:
         if not shutil.which(self.binary):
             return False
+        if self.profile.auth_env_mode == "any":
+            return any(os.environ.get(var) for var in self.profile.auth_env)
         return all(os.environ.get(var) for var in self.profile.auth_env)
 
     def missing_reason(self) -> str:
@@ -95,6 +97,10 @@ class CLIHarness(CommandHarness):
                 f" ({self.missing_hint})" if self.missing_hint else ""
             )
         missing = [v for v in self.profile.auth_env if not os.environ.get(v)]
+        if self.profile.auth_env_mode == "any":
+            if self.available():
+                return ""
+            return f"missing env (need one of): {', '.join(missing)}"
         return f"missing env: {', '.join(missing)}" if missing else ""
 
     def version(self) -> str:
@@ -233,8 +239,12 @@ class Codex(CLIHarness):
     version_cmd = ["codex", "--version"]
     prompt_mode = "argv"
     cmd_template = [
-        "codex", "exec", "--json", "--skip-git-repo-check",
-        "--ignore-user-config", "--approve-for-me",
+        "codex",
+        "exec",
+        "--json",
+        "--skip-git-repo-check",
+        "--ignore-user-config",
+        "--approve-for-me",
     ]
     profile = HarnessProfile(
         approval_flags=["--approve-for-me (implies workspace-write sandbox)"],
@@ -313,7 +323,12 @@ class Codex(CLIHarness):
                     "event": "tool",
                     "tool": "bash",
                     "text": str(item.get("command", ""))[:300],
-                    "usage": {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0},
+                    "usage": {
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                        "reasoning_tokens": 0,
+                        "cached_tokens": 0,
+                    },
                 }
             if itype == "file_change":
                 paths = ",".join(
@@ -324,7 +339,12 @@ class Codex(CLIHarness):
                     "event": "tool",
                     "tool": "edit",
                     "text": paths[:300],
-                    "usage": {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0},
+                    "usage": {
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                        "reasoning_tokens": 0,
+                        "cached_tokens": 0,
+                    },
                 }
             if itype == "error":
                 return {
@@ -508,9 +528,10 @@ class Aider(CLIHarness):
         plan_first=False,
         transcript_fidelity="stdout",
         backends=["local", "docker"],
-        auth_env=["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],  # one of, per --model
+        auth_env=["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+        auth_env_mode="any",  # one key suffices, matching the pinned --model provider
         model_families=[],  # multi-provider
-        notes="pair-programmer mode; multi-provider; model via --model",
+        notes="pair-programmer mode; multi-provider; model via --model; needs the key for whichever provider the pinned model uses",
     )
     missing_hint = "python -m pip install aider-install && aider-install"
 

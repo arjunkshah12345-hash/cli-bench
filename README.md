@@ -40,7 +40,7 @@ CLI-Bench keeps the headline number honest and makes every trade-off visible:
 
 - **CB-HDR** *(primary)* — Cost-Braked Harness Delta Rate: a **token-braked weighted pass rate**. Per task, each pass is credited in full up to 5× the **median resource spend of the harnesses that passed that task** (a deliberate noise-tolerance band), then decays linearly: 10× median → 0.5, 25× median → 0.2. Fail → 0, no matter how cleverly. A harness cannot buy rank with tokens.
 - **HDR** — the raw, unbraked weighted pass rate. Published always; it is the input to everything else.
-- **HDR-C** *(complement)* — unbraked pass rate **at equal cost**: the highest pass rate achievable under a per-task token envelope derived from the passer-median. Rewards harnesses that extract more value from fewer tokens.
+- **HDR-C** *(complement)* — equal-cost pass rate: per task, one budget bar for every harness — `envelope = 1.0 × the cohort's passer-median spend`. A harness keeps credit for a pass only if the **median spend of its own passing seeds** lands under the bar; tasks with no passer anywhere are excluded. Rewards harnesses that extract more value from fewer tokens. (n/a for a single-harness group — the bar degenerates to the harness's own median.)
 
 Plus reported axes that never hide trade-offs: wall time, tokens (in/out/reasoning/cached), turns, retry churn, and a code-quality probe judged blind on diffs only. Full formulas and worked examples: [SPEC.md §4](SPEC.md#4-the-metric-system).
 

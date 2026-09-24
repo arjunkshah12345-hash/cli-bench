@@ -28,7 +28,7 @@ Unweighted fraction of tasks passed (median over seeds, mean over tasks). Publis
 
 ### HDR-C — pass rate at equal cost
 
-CB-HDR discounts wasteful passes continuously. HDR-C asks a blunter question: *at a fixed token envelope, what fraction of tasks can you pass at all?* The envelope per task is `X × p50(t)`, normalized so tasks with expensive medians don't dominate (`X = 0.5` by default; `--envelope-factor`). Tasks no harness passes are excluded. HDR-C is deliberately harsh: a harness that only passes what it can pass cheaply scores the same as a spendthrift that passes the same set.
+CB-HDR discounts wasteful passes continuously. HDR-C asks a blunter question: *holding every harness to the same per-task budget bar, what fraction of tasks can you pass at all?* The bar per task is `envelope(t) = X × p50(t)`, where `p50(t)` is the **cohort's passer-median spend** — identical for every harness on that task, so scores are comparable across manifests (`X = 1.0` by default; `--envelope-factor`). A harness earns credit on a task iff it passed it **and the median spend of its own passing seeds** is within the envelope; tasks with no passer in the cohort are excluded. HDR-C is deliberately harsh: a harness that only passes what it can pass cheaply scores the same as a spendthrift that passes the same set. (For a single-harness group the bar degenerates to that harness's own median and the score saturates at 1.0 — it becomes meaningful from the second harness onward.)
 
 ## Seeds and variance
 

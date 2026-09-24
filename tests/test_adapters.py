@@ -167,7 +167,19 @@ def test_codex_parse_native_token_count():
     assert ev2["event"] == "thread" and ev2["thread_id"] == "abc-123"
     # legacy schema still parses
     ev3 = codex.parse_native(
-        {"msg": {"type": "token_count", "info": {"total_token_usage": {"input_tokens": 10, "output_tokens": 5, "reasoning_output_tokens": 3, "cached_input_tokens": 7}}}}
+        {
+            "msg": {
+                "type": "token_count",
+                "info": {
+                    "total_token_usage": {
+                        "input_tokens": 10,
+                        "output_tokens": 5,
+                        "reasoning_output_tokens": 3,
+                        "cached_input_tokens": 7,
+                    }
+                },
+            }
+        }
     )
     assert ev3["event"] == "usage" and ev3["usage"]["cached_tokens"] == 7
 
@@ -188,11 +200,35 @@ def test_missing_reason_mentions_env(monkeypatch):
     assert aider.available() is False
 
 
+def test_aider_available_with_either_key_alone(monkeypatch):
+    """Aider is multi-provider: ONE valid key (for the pinned model's provider)
+    must be enough. Regression test for the all-vars auth gate bug."""
+    aider = get_harness("aider")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-openai")
+    assert aider.available() is True
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-anthropic")
+    assert aider.available() is True
+    assert aider.missing_reason() == ""
+
+
+def test_all_mode_still_requires_every_var(monkeypatch):
+    """The default 'all' mode must stay strict for single-provider adapters."""
+    goose = get_harness("goose")  # declares auth_env=[] → trivially available
+    assert goose.profile.auth_env_mode == "all"
+    codex = get_harness("codex")
+    assert codex.profile.auth_env_mode == "all"
+
+
 @pytest.mark.skipif(shutil.which("codex") is None, reason="codex binary not installed")
 def test_available_when_env_present(monkeypatch):
     codex = get_harness("codex")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     assert codex.available() is True
+
+
 def test_versions_do_not_crash():
     for h in registry().values():
         v = h.version()

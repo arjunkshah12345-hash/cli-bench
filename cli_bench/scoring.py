@@ -4,10 +4,13 @@ Definitions (SPEC §4):
   CB-HDR  — per task, a pass earns weight × B, where B brakes credit by the
             passer-median resource spend. Mean over tasks, median over seeds.
   HDR     — unweighted pass rate (median over seeds, mean over tasks).
-  HDR-C   — pass rate at equal cost: per task, credit only passes whose spend
-            ≤ X × (p50(t) × C̄ / p50̄(t)), where p50(t) is the passer-median
-            spend, C̄ is the mean of p50 over tasks, and p50̄ normalizes the
-            envelope across tasks. Tasks with no passer anywhere are excluded.
+  HDR-C   — pass rate at equal cost: per task, the cohort's passer-median
+            spend p50(t) sets one budget bar, envelope(t) = X · p50(t). A
+            harness earns credit on t iff it passed t AND the median spend of
+            its own passing seeds is ≤ envelope(t). Tasks with no passer in
+            the cohort are excluded from the denominator. X is the published
+            envelope factor (default 1.0); the bar is identical for every
+            harness on a task, so HDR-C is comparable across manifests.
 """
 
 from __future__ import annotations
@@ -151,26 +154,33 @@ def _median_seed_score(
 def _hdr_c(
     trials: list[Trial], harness: str, tasks: list[str], envelope_factor: float
 ) -> tuple[float, list[str]]:
-    """Pass rate at equal cost. Returns (score, included task ids)."""
+    """Pass rate at equal cost (SPEC §4.1b). Returns (score, included task ids).
+
+    Per task, the cohort's passer-median spend sets a single budget bar:
+    envelope(t) = envelope_factor × p50(t). Credit requires passing the task
+    AND a median pass-spend within the envelope — one lucky cheap seed cannot
+    launder two expensive ones, matching the median-over-seeds aggregation of
+    the primary metrics. The bar is the *cohort* median, identical for every
+    harness on that task, so scores stay comparable across manifests.
+    """
     p50s = {tid: p50_spend(trials, tid) for tid in tasks}
     included = [tid for tid in tasks if p50s[tid] > 0]
     if not included:
         return 0.0, []
-    c_bar = statistics.mean(p50s[tid] for tid in included)
-    p50_bar = statistics.mean(p50s[tid] for tid in included)
     credited = 0
     for tid in included:
-        envelope = envelope_factor * p50s[tid] * (c_bar / p50_bar) if p50_bar > 0 else float("inf")
-        ok = any(
-            t.harness == harness and t.task_id == tid and t.outcome in PASS_OUTCOMES and t.spend <= envelope
+        envelope = envelope_factor * p50s[tid]
+        pass_spends = sorted(
+            t.spend
             for t in trials
+            if t.harness == harness and t.task_id == tid and t.outcome in PASS_OUTCOMES
         )
-        if ok:
+        if pass_spends and statistics.median(pass_spends) <= envelope:
             credited += 1
     return credited / len(included), included
 
 
-def score_group(group: RunGroup, n_bootstrap: int = 500, envelope_factor: float = 0.5) -> dict[str, Any]:
+def score_group(group: RunGroup, n_bootstrap: int = 500, envelope_factor: float = 1.0) -> dict[str, Any]:
     tasks = group.task_ids
     harnesses = group.harnesses
     if not tasks or not harnesses:

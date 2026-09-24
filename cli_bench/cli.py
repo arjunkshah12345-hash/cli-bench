@@ -208,14 +208,14 @@ def main(argv: list[str] | None = None) -> int:
 
     p_score = sub.add_parser("score", help="score a run dir")
     p_score.add_argument("run_dir")
-    p_score.add_argument("--envelope-factor", type=float, default=0.5, help="HDR-C envelope X (default 0.5)")
+    p_score.add_argument("--envelope-factor", type=float, default=1.0, help="HDR-C envelope X (default 1.0)")
     p_score.set_defaults(func=cmd_score)
 
     p_report = sub.add_parser("report", help="aggregate run dirs into site JSON/markdown")
     p_report.add_argument("run_dirs", nargs="+")
     p_report.add_argument("-o", "--out", default="results.json")
     p_report.add_argument("--md", default=None)
-    p_report.add_argument("--envelope-factor", type=float, default=0.5)
+    p_report.add_argument("--envelope-factor", type=float, default=1.0)
     p_report.set_defaults(func=cmd_report)
 
     args = parser.parse_args(argv)

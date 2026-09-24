@@ -21,17 +21,18 @@ repository's runner + verifier + scoring pipeline from raw artifacts in
 |---|---|
 | **CB-HDR** (weighted, cost-braked) | **0.580** (95% CI [0.28, 0.85], 500× bootstrap) |
 | HDR (raw pass rate) | 0.583 (23/36) |
-| HDR-C (equal-cost) | n/a — degenerate for a single-harness group (see note) |
+| HDR-C (equal-cost) | 1.0 — degenerate at n=1 (see note) |
 | Median $/task | $0.033 |
 | Median wall-clock/task | 95 s |
 | Sabotage detections | 0 |
 | Budget exits | 0 |
 | Crashes | 0 |
 
-> **HDR-C note:** the equal-cost envelope is defined relative to passer medians
-> *across harnesses*; with one harness it collapses to `0.5 × median passer
-> spend` within the same harness, which is unsatisfiable by construction.
-> HDR-C becomes meaningful from the second harness in a cohort onward.
+> **HDR-C note:** the equal-cost bar is the **cohort passer median per task**
+> (`envelope = 1.0 × p50(t)`); with a single harness in the group the bar is that
+> harness's own median, so the score trivially saturates at 1.0 — computed and
+> recorded in `leaderboard.json`, but uninformative. HDR-C becomes meaningful
+> from the second harness in a cohort onward.
 
 ## Per-task results (3 seeds each)
 

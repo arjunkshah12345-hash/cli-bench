@@ -4,13 +4,13 @@
   "suite_version": "0.9.0",
   "backend": "local",
   "created": "2026-09-24T02:10:00+00:00",
-  "envelope_factor": 0.5,
+  "envelope_factor": 1.0,
   "leaderboard": [
     {
       "harness": "codex",
       "cb_hdr": 0.5804,
       "hdr": 0.5833,
-      "hdr_c": 0.0,
+      "hdr_c": 1.0,
       "hdr_c_tasks": 9,
       "cost_usd": 0.0384,
       "tokens": 173665,

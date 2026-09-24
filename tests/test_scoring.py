@@ -114,12 +114,47 @@ def test_score_group_ci_present_and_ordered():
 
 def test_score_group_hdr_c_penalizes_expensive_passes():
     group = _make_group()
-    scored = score_group(group, envelope_factor=1.0)
+    scored = score_group(group)
     rows = {r["harness"]: r for r in scored["leaderboard"]}
-    # envelope alpha = 1.0*200*1 = 200 → slow's 300-spend pass doesn't count
-    # envelope beta = 1.0*400 → slow counts
-    assert rows["fast"]["hdr_c"] == pytest.approx(0.5)  # alpha yes, beta fail
-    assert rows["slow"]["hdr_c"] == pytest.approx(0.5)  # alpha no, beta yes
+    # cohort passer-median: alpha = median(100,100,300,300) = 200; beta = 400
+    # envelope(α) = 1.0*200 → fast (median pass 100) in, slow (300) out
+    # envelope(β) = 1.0*400 → slow (400) in; fast has no pass → 0
+    assert rows["fast"]["hdr_c"] == pytest.approx(0.5)  # alpha yes, beta no pass
+    assert rows["slow"]["hdr_c"] == pytest.approx(0.5)  # alpha out, beta yes
+
+
+def test_hdr_c_envelope_is_task_local_not_global_mean():
+    """The equal-cost bar tracks each task's own passer median (no cross-task mean)."""
+    trials = [
+        # cheap task: passer median 100
+        Trial("h1", "cheap", 0, "pass", spend=100, duration_s=1.0, cost_usd=0.0),
+        Trial("h1", "cheap", 1, "pass", spend=100, duration_s=1.0, cost_usd=0.0),
+        Trial("h2", "cheap", 0, "pass", spend=500, duration_s=1.0, cost_usd=0.0),
+        Trial("h2", "cheap", 1, "pass", spend=500, duration_s=1.0, cost_usd=0.0),
+        # expensive task: passer median 1000; h1 never passes it
+        Trial("h1", "big", 0, "fail", spend=1200, duration_s=1.0, cost_usd=0.0),
+        Trial("h1", "big", 1, "fail", spend=1200, duration_s=1.0, cost_usd=0.0),
+        Trial("h2", "big", 0, "pass", spend=1000, duration_s=1.0, cost_usd=0.0),
+        Trial("h2", "big", 1, "pass", spend=1000, duration_s=1.0, cost_usd=0.0),
+    ]
+    group = RunGroup(
+        "x",
+        None,
+        "m",
+        "1.0.0",
+        "local",
+        "",
+        "1.0.0",
+        trials,
+        {"cheap": {"weight": 1.0}, "big": {"weight": 1.0}},
+    )
+    scored = score_group(group)
+    rows = {r["harness"]: r for r in scored["leaderboard"]}
+    # cohort passer medians: cheap = median(100,100,500,500) = 300; big = 1000
+    # envelope(cheap)=300 → h1 in (median pass 100), h2 out (500)
+    # envelope(big)=1000 → h2 in; h1 has no big pass
+    assert rows["h1"]["hdr_c"] == pytest.approx(0.5)  # cheap yes, big no pass
+    assert rows["h2"]["hdr_c"] == pytest.approx(0.5)  # cheap out, big yes
 
 
 def test_score_group_excludes_never_passed_tasks():
@@ -144,6 +179,7 @@ def test_score_group_excludes_never_passed_tasks():
     assert scored["p50_spend"]["doomed"] == 0
     rows = {r["harness"]: r for r in scored["leaderboard"]}
     # doomed excluded from HDR-C denominators: a passes ok (within envelope), b doesn't
+    # (envelope(ok) = 1.0 × p50(10) = 10 → a in, b out)
     assert rows["a"]["hdr_c"] == pytest.approx(1.0)
     assert rows["b"]["hdr_c"] == pytest.approx(0.0)
 

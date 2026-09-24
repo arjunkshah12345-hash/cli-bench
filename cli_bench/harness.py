@@ -33,6 +33,10 @@ class HarnessProfile:
     transcript_fidelity: str = "stdout"  # "native" | "stdout"
     backends: list[str] = field(default_factory=lambda: ["local"])
     auth_env: list[str] = field(default_factory=list)
+    # "all" (default): every declared var must be set. "any": at least one —
+    # for multi-provider harnesses (e.g. aider takes OPENAI_API_KEY *or*
+    # ANTHROPIC_API_KEY depending on the pinned --model).
+    auth_env_mode: str = "all"
     model_families: list[str] = field(default_factory=list)  # empty = multi-provider
     notes: str = ""
 
