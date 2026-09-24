@@ -1,0 +1,7 @@
+exit=0
+--- stdout ---
+..................................                                       [100%]
+34 passed in 0.13s
+VERIFIER_PASS (4/4 mutants caught)
+
+--- stderr ---

@@ -151,5 +151,16 @@
   "price_table": "1.0.0",
   "allow_incompatible": false,
   "note": "Consolidated from per-task chunk runs (2026-09-23/24), one batch per task pair due to session process reaping. All 36 trials: codex @ openai/gpt-5.6-luna, local backend, suite 0.9.0, seeds {0,1,2}. feature/csv-normalizer ran after SPEC clarification (title-case apostrophe rule made explicit).",
-  "manifest_note": "task_meta completed from suite 0.9.1 (was missing debug/wrong-answer; weights now cover all 12 scored tasks). Suite bumped 0.9.0 -> 0.9.1 per SPEC \u00a76 (mid-cycle csv-normalizer SPEC clarification during the measured run)."
+  "manifest_note": "task_meta completed from suite 0.9.1 (was missing debug/wrong-answer; weights now cover all 12 scored tasks). Suite bumped 0.9.0 -> 0.9.1 per SPEC \u00a76 (mid-cycle csv-normalizer SPEC clarification during the measured run).",
+  "with_houdini": true,
+  "houdini_gate": {
+    "codex": {
+      "probes": 4,
+      "seeds": 3,
+      "trials": 12,
+      "failed": 0,
+      "status": "TRUSTED",
+      "note": "Gate evidence from probe runs 2026-09-24 (v3, after two probe-defect fixes: self-test shipped broken==fixed; mutation pristine/ staging). v0.9.0-v1 runs of these probes were invalidated by probe defects, not by codex."
+    }
+  }
 }

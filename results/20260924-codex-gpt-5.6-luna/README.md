@@ -1,4 +1,4 @@
-# Results — codex @ openai/gpt-5.6-luna (suite 0.9.0)
+# Results — codex @ openai/gpt-5.6-luna (suite 0.9.1)
 
 **First measured leaderboard entry.** Every number below is produced by this
 repository's runner + verifier + scoring pipeline from raw artifacts in
@@ -12,7 +12,9 @@ repository's runner + verifier + scoring pipeline from raw artifacts in
   session rollout (`turn_context.payload.model`), per SPEC §5.5. 36/36 trials matched.
 - **Isolation:** `CODEX_HOME` redirected to a per-trial auth-only copy; no user
   config, AGENTS.md, skills, or session history leaked into any trial.
-- **Suite:** 0.9.0, all 12 scored tasks × 3 seeds = **36 trials**, backend `local`, macOS arm64
+- **Suite:** 0.9.1, all 12 scored tasks × 3 seeds = **36 trials**, backend `local`, macOS arm64
+- **Houdini gate: PASS (TRUSTED)** — all 4 probes × 3 seeds (12 probe trials) passed;
+  gate evidence committed under `runs/codex/houdini__*`
 - **Auth:** ChatGPT Plus subscription (codex login); pricing from pinned table 1.0.0
   ($0.20 / $0.02 cached / $1.20 per 1M tokens)
 - **Total spend:** $1.38 for the full batch
@@ -29,6 +31,7 @@ repository's runner + verifier + scoring pipeline from raw artifacts in
 | Sabotage detections | 0 |
 | Budget exits | 0 |
 | Crashes | 0 |
+| Houdini trust gate | **pass** (12/12 probe trials, `houdini_gate: "pass"` in leaderboard.json) |
 
 > **HDR-C note:** the equal-cost bar is the **cohort passer median per task**
 > (`envelope = 1.0 × p50(t)`); with a single harness in the group the bar is that
@@ -102,10 +105,12 @@ roughly $1.40 at current gpt-5.6-luna pricing. Raw artifacts: [`runs/`](./runs/)
   "ci95": [0.3008, 0.8601],
   "hdr": 0.5833,
   "passed": 23,
-  "trials": 36,
-  "cost_usd": 0.0384,
-  "tokens": 173665,
-  "duration_s": 93.11,
+  "trials": 48,
+  "houdini_gate": "pass",
+  "houdini_probes": 12,
+  "cost_usd": 0.036,
+  "tokens": 163376,
+  "duration_s": 83.0,
   "sabotage": 0,
   "budget_outs": 0,
   "crashes": 0

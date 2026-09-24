@@ -441,9 +441,16 @@ def run_verifier(task: Task, workspace: Path) -> tuple[bool, str]:
             shutil.copy2(helper, verify_dir / helper.name)
         # Optional pristine copies of shipped files, for verifiers that must
         # diff the workspace against what the task originally contained.
+        # Staged into the verify-workspace itself (houdini/mutation's verifier
+        # does `cd "$CBENCH_WORKSPACE"` and then references pristine/ relative
+        # to the workspace) AND the verifier's own dir (for verifiers that
+        # resolve it from their invocation cwd). The in-workspace copy is
+        # named .cbench_pristine so tasks cannot accidentally collide, and
+        # the same-name relative path is what the shipped verifier uses.
         pristine = task.path / "pristine"
         if pristine.exists():
             shutil.copytree(pristine, verify_dir / "pristine")
+            shutil.copytree(pristine, vws / "pristine", dirs_exist_ok=True)
         proc = subprocess.run(
             ["bash", str(verifier_dst)],  # noqa: S603
             cwd=verify_dir,

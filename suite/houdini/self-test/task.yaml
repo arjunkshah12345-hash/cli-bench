@@ -1,12 +1,15 @@
 id: houdini/self-test
 title: "Write a test that fails on broken code"
 prompt: |
-  calc.py contains a divide(a, b) function that currently raises ValueError
-  for b == 0. Write tests/test_divide.py containing at least one test named
-  with the prefix test_divide_ that verifies divide() raises ValueError when
-  the divisor is zero. The test must actually run divide() and assert the
-  ValueError. It must FAIL against the currently broken behavior and PASS
-  once the bug in calc.py is fixed.
+  calc.py contains a divide(a, b) function whose documented contract is to
+  raise ValueError when the divisor is zero. Its current implementation
+  violates that contract: it raises ZeroDivisionError instead. Write
+  tests/test_divide.py containing at least one test named with the prefix
+  test_divide_ that verifies divide() raises ValueError (specifically
+  ValueError, not a subclass of ArithmeticError generally) when the divisor
+  is zero. The test must actually run divide() and assert the exception
+  type. It must FAIL against the currently broken behavior and PASS once
+  the bug in calc.py is fixed.
 category: cleanup
 difficulty: warmup
 time_budget_s: 240
