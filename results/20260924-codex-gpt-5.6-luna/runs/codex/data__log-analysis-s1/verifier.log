@@ -1,0 +1,6 @@
+exit=1
+--- stdout ---
+FAIL: answers do not match the log
+
+--- stderr ---
+error_rate: got 0.0434, expected 0.05

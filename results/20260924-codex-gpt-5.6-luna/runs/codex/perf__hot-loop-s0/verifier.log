@@ -1,0 +1,10 @@
+exit=0
+--- stdout ---
+.........                                                                [100%]
+9 passed in 0.02s
+  uniform: 0.230s naive vs 0.0031s optimized = 74.2x
+  clustered: 0.230s naive vs 0.0065s optimized = 35.5x
+  gridded: 0.109s naive vs 0.0024s optimized = 45.1x
+VERIFIER_PASS
+
+--- stderr ---

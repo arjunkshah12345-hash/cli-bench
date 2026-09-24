@@ -1,0 +1,7 @@
+exit=0
+--- stdout ---
+........                                                                 [100%]
+8 passed in 0.02s
+VERIFIER_PASS
+
+--- stderr ---

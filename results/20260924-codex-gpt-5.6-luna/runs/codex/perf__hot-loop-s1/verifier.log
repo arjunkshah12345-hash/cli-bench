@@ -1,0 +1,11 @@
+exit=1
+--- stdout ---
+.........                                                                [100%]
+9 passed in 0.04s
+  uniform: 0.179s naive vs 0.0027s optimized = 67.0x
+  clustered: 0.332s naive vs 0.0062s optimized = 53.3x
+  gridded: 0.110s naive vs 0.0170s optimized = 6.5x
+FAIL: not fast enough (need >= 10x vs naive)
+
+--- stderr ---
+worst-case speedup 6.5x < 10x

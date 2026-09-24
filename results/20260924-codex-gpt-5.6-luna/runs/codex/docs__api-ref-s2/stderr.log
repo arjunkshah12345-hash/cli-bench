@@ -1,0 +1,12 @@
+Reading additional input from stdin...
+2026-09-23T22:47:57.992767Z ERROR codex_core::session::session: failed to load skill /Users/arjunkshah21/.agents/skills/canvas/SKILL.md: missing YAML frontmatter delimited by ---
+2026-09-23T22:47:58.196571Z ERROR codex_core::session::session: failed to load skill /Users/arjunkshah21/.agents/skills/canvas/SKILL.md: missing YAML frontmatter delimited by ---
+codex(26492) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
+codex(26493) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
+codex(26494) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
+codex(26575) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
+codex(26576) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
+codex(26577) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
+codex(26578) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
+codex(26579) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.
+codex(26634) MallocStackLogging: can't turn off malloc stack logging because it was not enabled.

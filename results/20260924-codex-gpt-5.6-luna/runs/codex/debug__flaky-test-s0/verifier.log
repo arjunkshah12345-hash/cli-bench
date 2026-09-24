@@ -1,0 +1,5 @@
+exit=0
+--- stdout ---
+VERIFIER_PASS (15/15 repetitions green)
+
+--- stderr ---

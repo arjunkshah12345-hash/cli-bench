@@ -1,0 +1,18 @@
+exit=0
+--- stdout ---
+--- cell: base-a (markers: unit or api)
+.....                                                                    [100%]
+5 passed, 4 deselected in 0.02s
+--- cell: full-a (markers: unit or api or export)
+.......                                                                  [100%]
+7 passed, 2 deselected in 0.03s
+--- cell: base-b (markers: unit or api)
+.....                                                                    [100%]
+5 passed, 4 deselected in 0.02s
+--- cell: full-b (markers: unit or api or export)
+.......                                                                  [100%]
+7 passed, 2 deselected in 0.02s
+CI: all cells green
+VERIFIER_PASS
+
+--- stderr ---

@@ -10,7 +10,10 @@ id,name,email,signup_date,plan,mrr_usd
 ## Field rules
 
 **name** — trim whitespace, then Title Case each word (e.g. `  aLICE  SMITH ` → `Alice Smith`).
-Empty after trimming → `unknown`.
+"Words" are whitespace-separated tokens only: the first character of each token is
+uppercased and the rest of the token is lowercased (so `O'Brien` → `O'brien` and
+`MCDONALD` → `Mcdonald`). Do not use `str.title()`, which also uppercases after
+apostrophes. Empty after trimming → `unknown`.
 
 **email** — trim, lowercase. Valid only if it contains exactly one `@`, the domain
 part contains a dot, and it contains no spaces. Invalid or empty → empty string.

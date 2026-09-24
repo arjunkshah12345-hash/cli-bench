@@ -1,0 +1,7 @@
+exit=1
+--- stdout ---
+......................................                                   [100%]
+38 passed in 0.19s
+FAIL: mutation m3 survived: tests/test_textproc.py does not catch this behavior change
+
+--- stderr ---

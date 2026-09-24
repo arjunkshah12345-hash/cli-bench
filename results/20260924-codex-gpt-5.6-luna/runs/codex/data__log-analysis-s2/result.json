@@ -1,0 +1,20 @@
+{
+  "harness": "codex",
+  "task_id": "data/log-analysis",
+  "seed": 2,
+  "outcome": "fail",
+  "exit_code": 0,
+  "duration_s": 58.232,
+  "usage": {
+    "input_tokens": 144646,
+    "output_tokens": 2239,
+    "reasoning_tokens": 741,
+    "cached_tokens": 124416
+  },
+  "usage_estimated": false,
+  "cost_usd": 0.034994,
+  "verifier_ok": false,
+  "requested_model": "openai/gpt-5.6-luna",
+  "effective_model": "gpt-5.6-luna",
+  "artifact_dir": "data__log-analysis-s2"
+}

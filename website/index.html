@@ -252,21 +252,18 @@
     <div class="kicker">Leaderboard</div>
     <h2>One table. No asterisks.</h2>
     <p class="sub">Submit a run manifest from your own machine; the site renders what the community measured. Every row links its raw artifacts.</p>
-    <div class="lb-note"><span>⚠︎</span><span><strong>Illustrative sample below</strong> — structure shown, not measured results. No numbers on this page are benchmark data; this is a benchmark framework at v0.9, not a results announcement. Run <span class="mono">cbench run</span> to produce real ones.</span></div>
+    <div class="lb-note"><span>●</span><span><strong>First measured row is in.</strong> codex @ gpt-5.6-luna, 12 tasks × 3 seeds, suite 0.9.0, $1.38 total spend, every trial's effective model proven from codex's session rollout (SPEC §5.5). Raw artifacts in <span class="mono">results/</span> on GitHub. Rankings begin when the second harness joins this cohort.</span></div>
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>#</th><th>Harness</th><th>Profile</th><th>CB-HDR ↑</th><th>95% CI</th><th>HDR-C ↑</th><th>HDR</th><th>Pass rate</th><th>$/task</th><th>p50 latency</th><th>Gaming flags</th></tr>
+          <tr><th>#</th><th>Harness</th><th>Model cohort</th><th>Profile</th><th>CB-HDR ↑</th><th>95% CI</th><th>HDR-C ↑</th><th>HDR</th><th>Pass rate</th><th>$/task</th><th>p50 latency</th><th>Gaming flags</th></tr>
         </thead>
         <tbody>
-          <tr class="rank-1"><td class="num">1</td><td class="mono">harness-a</td><td><span class="pill">guarded</span></td><td class="num bar-cell"><div class="bar-track"><div class="bar-fill" style="width:86%"></div></div>&nbsp;0.861</td><td class="num">±0.021</td><td class="num">0.902</td><td class="num">83%</td><td class="num">$0.27</td><td class="num">6m 12s</td><td class="num">0</td></tr>
-          <tr><td class="num">2</td><td class="mono">harness-b</td><td><span class="pill">guarded</span></td><td class="num bar-cell"><div class="bar-track"><div class="bar-fill" style="width:82%"></div></div>&nbsp;0.824</td><td class="num">±0.026</td><td class="num">0.881</td><td class="num">79%</td><td class="num">$0.31</td><td class="num">7m 40s</td><td class="num">0</td></tr>
-          <tr><td class="num">3</td><td class="mono">harness-c</td><td><span class="pill">max-agency</span></td><td class="num bar-cell"><div class="bar-track"><div class="bar-fill" style="width:80%"></div></div>&nbsp;0.798</td><td class="num">±0.030</td><td class="num">0.905</td><td class="num">83%</td><td class="num">$0.52</td><td class="num">9m 05s</td><td class="num">0</td></tr>
-          <tr><td class="num">4</td><td class="mono">harness-d</td><td><span class="pill">guarded</span></td><td class="num bar-cell"><div class="bar-track"><div class="bar-fill" style="width:64%"></div></div>&nbsp;0.642</td><td class="num">±0.034</td><td class="num">0.710</td><td class="num">62%</td><td class="num">$0.19</td><td class="num">4m 51s</td><td class="num">1 <span class="pill">houdini/self-test</span></td></tr>
+          <tr class="rank-1"><td class="num">1</td><td class="mono">codex 0.153</td><td class="mono">gpt-5.6-luna</td><td><span class="pill">guarded</span></td><td class="num bar-cell"><div class="bar-track"><div class="bar-fill" style="width:58%"></div></div>&nbsp;0.580</td><td class="num">[0.28, 0.85]</td><td class="num">—</td><td class="num">0.583</td><td class="num">64%</td><td class="num">$0.038</td><td class="num">93s</td><td class="num">0</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="caption" style="margin-top:12px">CB-HDR and HDR-C per SPEC §4. Rows are single manifests; combine manifests across machines before ranking. Sample rows use placeholder names.</p>
+    <p class="caption" style="margin-top:12px">Measured 2026-09-24 · one cohort cell, not a ranking · HDR-C is n/a for a single-harness group · 0 sabotage flags, 0 crashes, native token accounting. Per-task breakdown and verifier evidence in <a class="mono" href="https://github.com/arjunkshah12345-hash/cli-bench/tree/main/results/20260924-codex-gpt-5.6-luna">results/20260924-codex-gpt-5.6-luna</a>.</p>
   </div>
 </section>
 

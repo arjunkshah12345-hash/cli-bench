@@ -1,0 +1,18 @@
+exit=1
+--- stdout ---
+.....F...                                                                [100%]
+=================================== FAILURES ===================================
+______________________________ test_summary_site _______________________________
+
+    def test_summary_site():
+        s = summarize([(1, 1), (2, 2)], [1.0, 2.0])
+>       assert s["total_rect_perimeter"] == 10
+E       assert 12 == 10
+
+../../cbench-trial-kdwbm7om/workspace/tests/test_migration.py:45: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_migration.py::test_summary_site - assert 12 == 10
+1 failed, 8 passed in 0.02s
+FAIL: test suite failed
+
+--- stderr ---

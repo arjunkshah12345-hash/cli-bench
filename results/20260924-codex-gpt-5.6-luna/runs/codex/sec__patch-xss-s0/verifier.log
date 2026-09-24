@@ -1,0 +1,47 @@
+exit=1
+--- stdout ---
+FF...                                                                    [100%]
+=================================== FAILURES ===================================
+______________________ test_script_payload_is_neutralized ______________________
+
+tmp_path = PosixPath('/private/var/folders/tq/d3n2dsrd0plg56kf1c4br4tr0000gn/T/pytest-of-arjunkshah21/pytest-74/test_script_payload_is_neutral0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x103faf830>
+
+    def test_script_payload_is_neutralized(tmp_path, monkeypatch):
+        monkeypatch.setattr(app, "STORE", tmp_path / "comments.json")
+        html = _render_with(PAYLOADS[0])
+        assert "<script>" not in html
+>       assert "alert" not in _executable_parts(html)
+E       AssertionError: assert 'alert' not in '<html><body...body></html>'
+E         
+E         'alert' is contained here:
+E           script&gt;alert(&#x27;xss1&#x27;)&lt;/script&gt;</div>
+E         ?           +++++
+E           </body></html>
+
+tests/test_exploit.py:22: AssertionError
+_______________________ test_img_onerror_is_neutralized ________________________
+
+tmp_path = PosixPath('/private/var/folders/tq/d3n2dsrd0plg56kf1c4br4tr0000gn/T/pytest-of-arjunkshah21/pytest-74/test_img_onerror_is_neutralize0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x103faed80>
+
+    def test_img_onerror_is_neutralized(tmp_path, monkeypatch):
+        monkeypatch.setattr(app, "STORE", tmp_path / "comments.json")
+        html = _render_with(PAYLOADS[1])
+        assert "<img" not in html
+>       assert "onerror" not in _executable_parts(html)
+E       AssertionError: assert 'onerror' not in '<html><body...body></html>'
+E         
+E         'onerror' is contained here:
+E           img src=x onerror=alert(2)&gt;</div>
+E         ?           +++++++
+E           </body></html>
+
+tests/test_exploit.py:29: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_exploit.py::test_script_payload_is_neutralized - AssertionE...
+FAILED tests/test_exploit.py::test_img_onerror_is_neutralized - AssertionErro...
+2 failed, 3 passed in 0.24s
+FAIL: tests failed
+
+--- stderr ---

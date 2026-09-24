@@ -1,0 +1,4 @@
+Reading additional input from stdin...
+2026-09-24T01:55:38.371709Z ERROR codex_core::session::session: failed to load skill /Users/arjunkshah21/.agents/skills/canvas/SKILL.md: missing YAML frontmatter delimited by ---
+2026-09-24T01:55:38.422723Z ERROR codex_core::session::session: failed to load skill /Users/arjunkshah21/.agents/skills/canvas/SKILL.md: missing YAML frontmatter delimited by ---
+2026-09-24T01:55:38.438363Z ERROR codex_models_manager::manager: failed to refresh available models: timeout waiting for child process to exit

@@ -1,0 +1,4 @@
+Reading additional input from stdin...
+2026-09-24T01:56:53.416920Z ERROR codex_core::session::session: failed to load skill /Users/arjunkshah21/.agents/skills/canvas/SKILL.md: missing YAML frontmatter delimited by ---
+2026-09-24T01:56:53.460997Z ERROR codex_core::session::session: failed to load skill /Users/arjunkshah21/.agents/skills/canvas/SKILL.md: missing YAML frontmatter delimited by ---
+2026-09-24T01:58:20.698439Z ERROR codex_core::tools::router: error=apply_patch verification failed: invalid hunk at line 10, Unexpected line found in update hunk: '*** Update File: /private/var/folders/tq/d3n2dsrd0plg56kf1c4br4tr0000gn/T/cbench-trial-b1w775ep/workspace/ci/run_all.sh'. Every line should start with ' ' (context line), '+' (added line), or '-' (removed line)

@@ -1,0 +1,8 @@
+exit=1
+--- stdout ---
+.....                                                                    [100%]
+5 passed in 0.01s
+FAIL: independent XSS probe failed
+
+--- stderr ---
+payload text vanished entirely (over-aggressive filtering?)

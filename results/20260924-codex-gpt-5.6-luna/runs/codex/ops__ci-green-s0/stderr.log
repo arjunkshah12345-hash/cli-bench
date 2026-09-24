@@ -1,0 +1,3 @@
+Reading additional input from stdin...
+2026-09-24T01:56:53.416718Z ERROR codex_core::session::session: failed to load skill /Users/arjunkshah21/.agents/skills/canvas/SKILL.md: missing YAML frontmatter delimited by ---
+2026-09-24T01:56:53.460964Z ERROR codex_core::session::session: failed to load skill /Users/arjunkshah21/.agents/skills/canvas/SKILL.md: missing YAML frontmatter delimited by ---

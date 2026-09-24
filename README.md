@@ -99,7 +99,7 @@ We publish these on the website because they change how you should read every nu
 2. **Estimated tokens** — harnesses without usage reporting get ±10–20% estimated costs; comparisons within the estimate class are fair.
 3. **Task coverage** — 12 tasks × 3 seeds ranks harnesses with CIs; it cannot resolve sub-point deltas. We bootstrap CIs and refuse to discuss smaller gaps.
 4. **Snapshots beat aliases** — harnesses that can't pin a model snapshot are flagged `provisional`.
-5. **Framework, not yet results** — there is no official measured leaderboard yet. Every number you see is either yours to produce or clearly labeled as illustrative.
+5. **Results, verifiably** — the first measured cohort cell is committed: codex @ gpt-5.6-luna, 12 tasks × 3 seeds, CB-HDR 0.580 (see [`results/20260924-codex-gpt-5.6-luna/`](results/20260924-codex-gpt-5.6-luna/README.md) with per-task breakdowns and raw per-trial artifacts). Your runs slot into the same format.
 
 ## Repository layout
 

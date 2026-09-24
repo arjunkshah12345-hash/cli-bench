@@ -10,6 +10,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-runs/
+/runs/
+# committed measured results live under results/*/runs/ — do not ignore those
 report.md
 .DS_Store

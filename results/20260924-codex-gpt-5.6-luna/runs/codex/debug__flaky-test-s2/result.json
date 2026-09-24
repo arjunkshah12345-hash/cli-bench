@@ -1,0 +1,20 @@
+{
+  "harness": "codex",
+  "task_id": "debug/flaky-test",
+  "seed": 2,
+  "outcome": "pass",
+  "exit_code": 0,
+  "duration_s": 83.342,
+  "usage": {
+    "input_tokens": 145770,
+    "output_tokens": 1916,
+    "reasoning_tokens": 526,
+    "cached_tokens": 114944
+  },
+  "usage_estimated": false,
+  "cost_usd": 0.034383,
+  "verifier_ok": true,
+  "requested_model": "openai/gpt-5.6-luna",
+  "effective_model": "gpt-5.6-luna",
+  "artifact_dir": "debug__flaky-test-s2"
+}
