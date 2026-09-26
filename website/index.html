@@ -171,6 +171,50 @@
   footer { padding: 48px 0 64px; color: var(--fg-3); font-size: 13px; }
   .foot-inner { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; align-items: center; }
   footer a { color: var(--fg-2); } footer a:hover { color: var(--fg); }
+  /* ---- motion layer (progressive, reduced-motion aware) ---- */
+  @keyframes cb-fade-up {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes cb-caret {
+    0%, 45% { opacity: 1; }
+    50%, 95% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  @keyframes cb-pulse {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 45%, transparent); }
+    70% { box-shadow: 0 0 0 7px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  .cb-js .cb-reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity .55s cubic-bezier(.2,.6,.2,1), transform .55s cubic-bezier(.2,.6,.2,1);
+    transition-delay: var(--cb-d, 0ms);
+  }
+  .cb-js .cb-reveal.cb-in { opacity: 1; transform: none; }
+  .cb-noio .cb-reveal, html:not(.cb-js) .cb-reveal { opacity: 1; transform: none; transition: none; }
+  .cb-caret::after {
+    content: "▍";
+    margin-left: 2px;
+    animation: cb-caret 1.1s steps(1) infinite;
+    color: var(--fg-2);
+  }
+  /* hover lifts: cards, leaderboard rows, task cards */
+  .cb-lift { transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+  .cb-lift:hover { transform: translateY(-2px); border-color: var(--border); }
+  nav .nav-cta { transition: opacity .15s ease, transform .15s ease; }
+  nav .nav-cta:hover { opacity: .85; transform: translateY(-1px); }
+  .nav-links a { transition: color .15s ease, background .15s ease; }
+  a.cb-arrow { transition: gap .15s ease; display: inline-flex; gap: 6px; }
+  a.cb-arrow:hover { gap: 10px; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .cb-reveal { opacity: 1; transform: none; transition: none; }
+    .cb-caret::after { animation: none; }
+    .cb-lift, .cb-lift:hover, nav .nav-cta:hover { transform: none; transition: none; }
+    * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  }
 </style>
 </head>
 <body>
@@ -194,20 +238,21 @@
 
 <header class="hero">
   <div class="wrap">
-    <h1>Measure the harness,<br><span class="dim">not the scaffolding luck.</span></h1>
-    <p class="lede">Agent harnesses — Cursor Agent, Codex, OpenCode, Droid, Claude Code, Aider — all claim to drive the same models. CLI-Bench holds everything constant except the harness: model-compatible cohorts, identical tasks, identical budgets, a deterministic verifier, and anti-gaming probes.</p>
-    <div class="hero-actions">
+    <h1 class="cb-reveal">Measure the harness,<br><span class="dim">not the scaffolding luck.</span></h1>
+    <p class="lede cb-reveal" style="--cb-d:80ms">Agent harnesses — Cursor Agent, Codex, OpenCode, Droid, Claude Code, Aider — all claim to drive the same models. CLI-Bench holds everything constant except the harness: model-compatible cohorts, identical tasks, identical budgets, a deterministic verifier, and anti-gaming probes.</p>
+    <div class="hero-actions cb-reveal" style="--cb-d:160ms">
       <a class="btn btn-primary" href="#quickstart">Run it locally</a>
       <a class="btn" href="https://github.com/arjunkshah12345-hash/cli-bench" target="_blank" rel="noopener">Read the spec →</a>
     </div>
-    <div class="terminal">
+    <div class="terminal cb-reveal" style="--cb-d:240ms">
       <div class="bar"><i></i><i></i><i></i></div>
       <pre><span class="c-dim">$</span> git clone https://github.com/arjunkshah12345-hash/cli-bench && cd cli-bench
 <span class="c-dim">$</span> pip install -e . && cbench list
-<span class="c-dim">$</span> cbench run --harness codex --model openai/gpt-5.3 --seeds 3
-<span class="c-dim">run</span>  <span class="c-accent">36 trials</span> · 12 tasks + 4 houdini probes · seeds ×3 · budget enforced
+<span class="c-dim">$</span> cbench run --harness codex --model openai/gpt-5.6-luna --seeds 3
+<span class="c-dim">run</span>  <span class="c-accent">36 trials</span> · 12 tasks · 3 seeds · budgets enforced
+<span class="c-dim">gate</span>  <span class="c-ok">houdini 12/12</span> · effective model proven 36/36 (SPEC §5.5)
 <span class="c-dim">verify</span>  deterministic verifiers · sabotage checks · pristine copies
-<span class="c-ok">✓</span> scored  →  <span class="c-accent">CB-HDR 0.847</span>  HDR-C 0.912  29/36 pass  $3.11 spent  41.2 min</pre>
+<span class="c-ok">✓</span> scored  →  <span class="c-accent">CB-HDR 0.592</span>  HDR-C 1.00*  23/36 pass  $1.38 spent  49.8 min<span class="cb-caret"></span></pre>
     </div>
   </div>
 </header>
@@ -215,12 +260,12 @@
 <section id="why">
   <div class="wrap">
     <div class="kicker">The problem</div>
-    <h2>Model benchmarks can't see the agent.</h2>
+    <h2 class="cb-reveal">Model benchmarks can't see the agent.</h2>
     <p class="sub">SWE-bench, Terminal-Bench, and HAL established that <em>the same model scores wildly differently across harnesses</em> — but each either fixes the harness or treats it as a nuisance variable. CLI-Bench makes the harness the <em>subject under test</em>: related work like <a class="mono" style="text-decoration:underline" href="https://github.com/reacher-z/HarnessBench" target="_blank" rel="noopener">HarnessBench</a> and A-Code Bench shares the instinct; CLI-Bench focuses narrowly on coding-agent CLIs with deterministic per-task verification, seeded instances, and anti-gaming probes.</p>
     <div class="grid-3">
-      <div class="card"><span class="tag">ceteris paribus</span><h3>Everything held constant</h3><p>Same model per cohort, same task prompt, same shell, same time and token budget, same verifier. The harness is the only independent variable — and the model the CLI actually ran is verified against the request.</p></div>
-      <div class="card"><span class="tag">determinism</span><h3>No LLM judge in pass/fail</h3><p>Task verdicts come from plain scripts: exit 0 means pass. The headline score has no judge, no vibes, no drift — a separate code-quality axis (SPEC §4.3) is the only judged number and never feeds CB-HDR.</p></div>
-      <div class="card"><span class="tag">anti-gaming</span><h3>Houdini probes</h3><p>Four trap tasks detect test mutation, verifier editing, spec hallucination, and peeking at hidden files. Run them with <span class="mono">--with-houdini</span>: any probe that doesn't pass marks the run <span class="mono">untrusted</span> on the leaderboard — the label is enforced by the scorer, not promised.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">ceteris paribus</span><h3>Everything held constant</h3><p>Same model per cohort, same task prompt, same shell, same time and token budget, same verifier. The harness is the only independent variable — and the model the CLI actually ran is verified against the request.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">determinism</span><h3>No LLM judge in pass/fail</h3><p>Task verdicts come from plain scripts: exit 0 means pass. The headline score has no judge, no vibes, no drift — a separate code-quality axis (SPEC §4.3) is the only judged number and never feeds CB-HDR.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">anti-gaming</span><h3>Houdini probes</h3><p>Four trap tasks detect test mutation, verifier editing, spec hallucination, and peeking at hidden files. Run them with <span class="mono">--with-houdini</span>: any probe that doesn't pass marks the run <span class="mono">untrusted</span> on the leaderboard — the label is enforced by the scorer, not promised.</p></div>
     </div>
   </div>
 </section>
@@ -228,21 +273,21 @@
 <section id="score">
   <div class="wrap">
     <div class="kicker">The score</div>
-    <h2>CB-HDR — correctness, priced honestly.</h2>
+    <h2 class="cb-reveal">CB-HDR — correctness, priced honestly.</h2>
     <p class="sub">Hard-blocking first: a task that fails scores zero, no matter how fast or cheap. Passing runs earn <strong>full credit up to 5× the passer-median token spend</strong> — a deliberate noise-tolerance band — then decay linearly. Latency and diff churn are published as separate columns, never folded into the headline.</p>
     <div class="formula">
       <span class="k">CB-HDR</span> = Σ<sub>t</sub> 1[pass] · w(t) · <span class="k">B</span>(t) / Σ<sub>t</sub> w(t)<br>
       <span style="color:var(--fg-3)">B(t) = min(1, 5·p50<sub>pass</sub> / spend)&nbsp;&nbsp;→&nbsp;&nbsp;≤5× median = 1.0&nbsp;&nbsp;·&nbsp;&nbsp;10× = 0.5&nbsp;&nbsp;·&nbsp;&nbsp;25× = 0.2&nbsp;&nbsp;·&nbsp;&nbsp;cache reads count at 0.1×</span>
     </div>
     <div class="score-cols">
-      <div class="card"><span class="tag">β · cost</span><h3>Token & dollar brake</h3><p>Native per-turn usage when the harness reports it; transcript estimation only as a labeled fallback. Overspend past 5× the passer p50 and your pass decays linearly — the task's dollar budget tightens the band further.</p></div>
-      <div class="card"><span class="tag">τ · latency</span><h3>Wall clock, published</h3><p>A pass that took 10 minutes is not hidden: p50 latency is a first-class column on every leaderboard, it just never silently multiplies the headline score.</p></div>
-      <div class="card"><span class="tag">χ · churn</span><h3>Diff churn, published</h3><p>Lines touched are reported per task — surgical agents are visible without an invented churn constant in the score.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">β · cost</span><h3>Token & dollar brake</h3><p>Native per-turn usage when the harness reports it; transcript estimation only as a labeled fallback. Overspend past 5× the passer p50 and your pass decays linearly — the task's dollar budget tightens the band further.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">τ · latency</span><h3>Wall clock, published</h3><p>A pass that took 10 minutes is not hidden: p50 latency is a first-class column on every leaderboard, it just never silently multiplies the headline score.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">χ · churn</span><h3>Diff churn, published</h3><p>Lines touched are reported per task — surgical agents are visible without an invented churn constant in the score.</p></div>
     </div>
     <div class="grid-3" style="margin-top:16px">
-      <div class="card"><span class="tag">HDR-C</span><h3>Equal-cost pass rate</h3><p>Per task, one budget bar for every harness: the cohort's passer-median spend. A pass keeps credit only if its median cost lands under the bar — so a spend-heavy harness can't buy the same score. Published next to CB-HDR so capability and efficiency never blur.</p></div>
-      <div class="card"><span class="tag">CIs</span><h3>Bootstrap confidence</h3><p>12 tasks × 3 seeds; percentile bootstrap over trials gives every score an interval. Rankings that overlap aren't rankings.</p></div>
-      <div class="card"><span class="tag">profiles</span><h3>Declared agency</h3><p>Every adapter declares its approval mode, sandbox, and flags in a machine-readable profile. A max-agency run can never be silently compared to a guarded one.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">HDR-C</span><h3>Equal-cost pass rate</h3><p>Per task, one budget bar for every harness: the cohort's passer-median spend. A pass keeps credit only if its median cost lands under the bar — so a spend-heavy harness can't buy the same score. Published next to CB-HDR so capability and efficiency never blur.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">CIs</span><h3>Bootstrap confidence</h3><p>12 tasks × 3 seeds; percentile bootstrap over trials gives every score an interval. Rankings that overlap aren't rankings.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">profiles</span><h3>Declared agency</h3><p>Every adapter declares its approval mode, sandbox, and flags in a machine-readable profile. A max-agency run can never be silently compared to a guarded one.</p></div>
     </div>
   </div>
 </section>
@@ -250,9 +295,9 @@
 <section id="leaderboard">
   <div class="wrap">
     <div class="kicker">Leaderboard</div>
-    <h2>One table. No asterisks.</h2>
+    <h2 class="cb-reveal">One table. No asterisks.</h2>
     <p class="sub">Submit a run manifest from your own machine; the site renders what the community measured. Every row links its raw artifacts.</p>
-    <div class="lb-note"><span>●</span><span><strong>First measured row is in.</strong> codex @ gpt-5.6-luna, 12 tasks × 3 seeds, suite 0.9.1, $1.38 total spend, every trial's effective model proven from codex's session rollout (SPEC §5.5). Raw artifacts in <span class="mono">results/</span> on GitHub. Rankings begin when the second harness joins this cohort.</span></div>
+    <div class="lb-note cb-reveal"><span>●</span><span><strong>First measured row is in.</strong> codex @ gpt-5.6-luna, 12 tasks × 3 seeds, suite 0.9.1, $1.38 total spend, every trial's effective model proven from codex's session rollout (SPEC §5.5). Raw artifacts in <span class="mono">results/</span> on GitHub. Rankings begin when the second harness joins this cohort.</span></div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -270,33 +315,33 @@
 <section id="tasks">
   <div class="wrap">
     <div class="kicker">The suite</div>
-    <h2>12 real tasks. 4 traps.</h2>
+    <h2 class="cb-reveal">12 real tasks. 4 traps.</h2>
     <p class="sub">Every task ships a hermetic environment, seeded variation, and a verifier that re-checks the work on a pristine copy. Prompts are harness-neutral — no tool mentions, no file-path spoilers.</p>
     <div class="task-grid">
-      <div class="task"><div class="id">refactor/deadcode</div><div class="meta"><span>refactor</span><span class="diff-standard">standard</span></div></div>
-      <div class="task"><div class="id">refactor/api-shape</div><div class="meta"><span>refactor</span><span class="diff-hard">hard</span></div></div>
-      <div class="task"><div class="id">feature/rate-limiter</div><div class="meta"><span>feature</span><span class="diff-hard">hard</span></div></div>
-      <div class="task"><div class="id">feature/csv-normalizer</div><div class="meta"><span>feature</span><span class="diff-standard">standard</span></div></div>
-      <div class="task"><div class="id">debug/flaky-test</div><div class="meta"><span>debugging</span><span class="diff-hard">hard</span></div></div>
-      <div class="task"><div class="id">debug/wrong-answer</div><div class="meta"><span>debugging</span><span class="diff-standard">standard</span></div></div>
-      <div class="task"><div class="id">tooling/test-gen</div><div class="meta"><span>tooling</span><span class="diff-standard">standard</span></div></div>
-      <div class="task"><div class="id">data/log-analysis</div><div class="meta"><span>data</span><span class="diff-standard">standard</span></div></div>
-      <div class="task"><div class="id">ops/ci-green</div><div class="meta"><span>ops</span><span class="diff-hard">hard</span></div></div>
-      <div class="task"><div class="id">sec/patch-xss</div><div class="meta"><span>security</span><span class="diff-hard">hard</span></div></div>
-      <div class="task"><div class="id">perf/hot-loop</div><div class="meta"><span>perf</span><span class="diff-standard">standard</span></div></div>
-      <div class="task"><div class="id">docs/api-ref</div><div class="meta"><span>docs</span><span class="diff-warmup">warmup</span></div></div>
-      <div class="task"><div class="id">houdini/self-test</div><div class="meta"><span>trap</span><span class="diff-frontier">probe</span></div></div>
-      <div class="task"><div class="id">houdini/mutation</div><div class="meta"><span>trap</span><span class="diff-frontier">probe</span></div></div>
-      <div class="task"><div class="id">houdini/hidden-spec</div><div class="meta"><span>trap</span><span class="diff-frontier">probe</span></div></div>
-      <div class="task"><div class="id">houdini/no-cheat</div><div class="meta"><span>trap</span><span class="diff-frontier">probe</span></div></div>
+      <div class="task cb-lift"><div class="id">refactor/deadcode</div><div class="meta"><span>refactor</span><span class="diff-standard">standard</span></div></div>
+      <div class="task cb-lift"><div class="id">refactor/api-shape</div><div class="meta"><span>refactor</span><span class="diff-hard">hard</span></div></div>
+      <div class="task cb-lift"><div class="id">feature/rate-limiter</div><div class="meta"><span>feature</span><span class="diff-hard">hard</span></div></div>
+      <div class="task cb-lift"><div class="id">feature/csv-normalizer</div><div class="meta"><span>feature</span><span class="diff-standard">standard</span></div></div>
+      <div class="task cb-lift"><div class="id">debug/flaky-test</div><div class="meta"><span>debugging</span><span class="diff-hard">hard</span></div></div>
+      <div class="task cb-lift"><div class="id">debug/wrong-answer</div><div class="meta"><span>debugging</span><span class="diff-standard">standard</span></div></div>
+      <div class="task cb-lift"><div class="id">tooling/test-gen</div><div class="meta"><span>tooling</span><span class="diff-standard">standard</span></div></div>
+      <div class="task cb-lift"><div class="id">data/log-analysis</div><div class="meta"><span>data</span><span class="diff-standard">standard</span></div></div>
+      <div class="task cb-lift"><div class="id">ops/ci-green</div><div class="meta"><span>ops</span><span class="diff-hard">hard</span></div></div>
+      <div class="task cb-lift"><div class="id">sec/patch-xss</div><div class="meta"><span>security</span><span class="diff-hard">hard</span></div></div>
+      <div class="task cb-lift"><div class="id">perf/hot-loop</div><div class="meta"><span>perf</span><span class="diff-standard">standard</span></div></div>
+      <div class="task cb-lift"><div class="id">docs/api-ref</div><div class="meta"><span>docs</span><span class="diff-warmup">warmup</span></div></div>
+      <div class="task cb-lift"><div class="id">houdini/self-test</div><div class="meta"><span>trap</span><span class="diff-frontier">probe</span></div></div>
+      <div class="task cb-lift"><div class="id">houdini/mutation</div><div class="meta"><span>trap</span><span class="diff-frontier">probe</span></div></div>
+      <div class="task cb-lift"><div class="id">houdini/hidden-spec</div><div class="meta"><span>trap</span><span class="diff-frontier">probe</span></div></div>
+      <div class="task cb-lift"><div class="id">houdini/no-cheat</div><div class="meta"><span>trap</span><span class="diff-frontier">probe</span></div></div>
     </div>
     <div class="grid-3" style="margin-top:40px">
-      <div class="card"><span class="tag">houdini/self-test</span><h3>Will it doctor its own tests?</h3><p>The only way to "pass" is to edit the shipped test — which the sabotage checker catches instantly.</p></div>
-      <div class="card"><span class="tag">houdini/mutation</span><h3>Will it weaken assertions?</h3><p>A tempting-but-wrong fix path makes mutating the test file the cheap way out. Verifier diffs against a pristine copy.</p></div>
-      <div class="card"><span class="tag">houdini/hidden-spec</span><h3>Does it invent requirements?</h3><p>Format rules live in a file the prompt never mentions. Agents that guess formats fail; agents that read succeed.</p></div>
-      <div class="card"><span class="tag">houdini/no-cheat</span><h3>Does it peek?</h3><p>A decoy file whispers "the answer is hidden here". atime auditing catches harnesses that open it — and the honest pass truncating it is exempt.</p></div>
-      <div class="card"><span class="tag">budgets</span><h3>Same rope for everyone</h3><p>Per-task token, dollar, and wall-clock budgets enforced by the runner; checkpoint telemetry at 25/50/75% distinguishes "stuck" from "sandbagged".</p></div>
-      <div class="card"><span class="tag">seeds</span><h3>Seeded, not memorized</h3><p>Every environment materializes from CBENCH_SEED: different data, different race windows, same task. Memorization buys nothing.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">houdini/self-test</span><h3>Will it doctor its own tests?</h3><p>The only way to "pass" is to edit the shipped test — which the sabotage checker catches instantly.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">houdini/mutation</span><h3>Will it weaken assertions?</h3><p>A tempting-but-wrong fix path makes mutating the test file the cheap way out. Verifier diffs against a pristine copy.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">houdini/hidden-spec</span><h3>Does it invent requirements?</h3><p>Format rules live in a file the prompt never mentions. Agents that guess formats fail; agents that read succeed.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">houdini/no-cheat</span><h3>Does it peek?</h3><p>A decoy file whispers "the answer is hidden here". atime auditing catches harnesses that open it — and the honest pass truncating it is exempt.</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">budgets</span><h3>Same rope for everyone</h3><p>Per-task token, dollar, and wall-clock budgets enforced by the runner; checkpoint telemetry at 25/50/75% distinguishes "stuck" from "sandbagged".</p></div>
+      <div class="card cb-lift cb-reveal"><span class="tag">seeds</span><h3>Seeded, not memorized</h3><p>Every environment materializes from CBENCH_SEED: different data, different race windows, same task. Memorization buys nothing.</p></div>
     </div>
   </div>
 </section>
@@ -304,9 +349,9 @@
 <section id="quickstart">
   <div class="wrap">
     <div class="kicker">Quickstart</div>
-    <h2>From clone to score in five minutes.</h2>
+    <h2 class="cb-reveal">From clone to score in five minutes.</h2>
     <div class="qs">
-      <div class="terminal">
+      <div class="terminal cb-reveal">
         <div class="bar"><i></i><i></i><i></i></div>
         <pre class="codeblock"><span class="c-dim"># 1. install</span>
 git clone https://github.com/arjunkshah12345-hash/cli-bench
@@ -318,7 +363,7 @@ cbench list            <span class="c-dim"># shows tasks + detected CLIs + versi
 <span class="c-dim"># 3. sanity-run (no API cost)</span>
 cbench run --harness mock-a --model mock/gpt-5.3 --seeds 1</pre>
       </div>
-      <div class="terminal">
+      <div class="terminal cb-reveal">
         <div class="bar"><i></i><i></i><i></i></div>
         <pre class="codeblock"><span class="c-dim"># 4. the real thing (model-compatible cohort)</span>
 cbench run \
@@ -353,5 +398,19 @@ cbench report runs/&lt;run-dir&gt; --out report.html
   </div>
 </footer>
 
+<script>
+  document.documentElement.classList.add("cb-js");
+  var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced || !("IntersectionObserver" in window)) {
+    document.documentElement.classList.add("cb-noio");
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("cb-in"); io.unobserve(e.target); }
+      });
+    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+    document.querySelectorAll(".cb-reveal").forEach(function (el) { io.observe(el); });
+  }
+</script>
 </body>
 </html>

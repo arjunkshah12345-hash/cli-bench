@@ -57,7 +57,17 @@ def _ctx(task_id="refactor/deadcode", seed=0, budget=600, model="openai/gpt-5.3"
 
 def test_model_pinning_passed_to_cli():
     """Every real adapter must include a model flag in its built command."""
-    for name in ("codex", "claude-code", "opencode", "cursor-agent", "droid", "gemini", "aider", "goose"):
+    for name in (
+        "codex",
+        "claude-code",
+        "opencode",
+        "cursor-agent",
+        "droid",
+        "gemini",
+        "aider",
+        "goose",
+        "prime-agent",
+    ):
         h = get_harness(name)
         cmd = h.build_cmd(_ctx(model="openai/gpt-5.3"))
         joined = " ".join(cmd)

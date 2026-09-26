@@ -433,17 +433,93 @@ class OpenCode(CLIHarness):
     profile = HarnessProfile(
         approval_flags=[],
         plan_first=False,
-        transcript_fidelity="stdout",
+        transcript_fidelity="native",
         backends=["local", "docker"],
-        auth_env=[],  # provider keys read from opencode auth config
+        auth_env=[],  # provider keys read from opencode auth config (`opencode auth login`)
         model_families=[],  # multi-provider
-        notes="opencode run; multi-provider; model via -m provider/model",
+        notes="opencode run emits stream-json (part.started/part.updated/step_finish); "
+        "step_finish carries native token counts; model via -m provider/model",
     )
-    missing_hint = "npm i -g opencode-ai"
+    missing_hint = "npm i -g opencode-ai && opencode auth login"
+
+    def available(self) -> bool:
+        if not shutil.which(self.binary):
+            return False
+        # Provider credentials live in opencode's own auth store (or env).
+        auth = Path.home() / ".local" / "share" / "opencode" / "auth.json"
+        try:
+            data = json.loads(auth.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            data = {}
+        return bool(data) or any(
+            os.environ.get(v) for v in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY")
+        )
+
+    def missing_reason(self) -> str:
+        if not shutil.which(self.binary):
+            return f"binary {self.binary!r} not on PATH" + (
+                f" ({self.missing_hint})" if self.missing_hint else ""
+            )
+        if self.available():
+            return ""
+        return "no provider credentials (run: opencode auth login)"
 
     def model_flags(self, bare: str, full: str) -> list[str]:
         # opencode wants provider/model form.
         return ["-m", full]
+
+    def parse_native(self, obj: dict[str, Any]) -> dict[str, Any] | None:
+        typ = obj.get("type")
+        part = obj.get("part")
+        if not isinstance(part, dict):
+            part = {}
+        ptype = part.get("type")
+        if typ == "step_finish":
+            tokens = obj.get("tokens")
+            if not isinstance(tokens, dict):
+                tokens = {}
+            cache = tokens.get("cache")
+            if not isinstance(cache, dict):
+                cache = {}
+            return {
+                "ts": None,
+                "event": "usage",
+                "usage": {
+                    "input_tokens": tokens.get("input", 0) or 0,
+                    "output_tokens": tokens.get("output", 0) or 0,
+                    "reasoning_tokens": tokens.get("reasoning", 0) or 0,
+                    "cached_tokens": cache.get("read", 0) or 0,
+                },
+                "usage_estimated": False,
+            }
+        if typ == "text" and ptype == "text":
+            text = str(part.get("text", ""))
+            return {
+                "ts": None,
+                "event": "log",
+                "text": text[:2000],
+                "usage": estimate_text_usage(text),
+                "usage_estimated": True,
+            }
+        if typ == "tool" and ptype == "tool":
+            return {
+                "ts": None,
+                "event": "tool",
+                "tool": _canonical_tool(str(part.get("tool", ""))),
+                "text": str(part.get("tool", ""))[:200],
+                "usage": {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0},
+            }
+        if typ == "error":
+            err = str(obj.get("error") or part.get("error") or "unknown")
+            return {
+                "ts": None,
+                "event": "log",
+                "text": f"[error] {err}"[:2000],
+                "usage": estimate_text_usage(err),
+                "usage_estimated": True,
+            }
+        # step_start / part.started / part.updated / log lines: not needed.
+        return None
 
 
 class CursorAgent(CLIHarness):
@@ -451,20 +527,53 @@ class CursorAgent(CLIHarness):
     binary = "cursor-agent"
     version_cmd = ["cursor-agent", "--version"]
     prompt_mode = "argv"
-    cmd_template = ["cursor-agent", "-p", "--force"]
+    cmd_template = ["cursor-agent", "-p", "--output-format", "stream-json", "--force"]
     profile = HarnessProfile(
         approval_flags=["--force"],
         plan_first=False,
-        transcript_fidelity="stdout",
+        transcript_fidelity="native",
         backends=["local", "docker"],
         auth_env=["CURSOR_API_KEY"],
         model_families=[],  # multi-provider
-        notes="headless print mode; --force auto-approves; model via --model",
+        notes="headless stream-json print mode; --force auto-approves; model via --model",
     )
-    missing_hint = "curl cursor.com/install"
+    missing_hint = "curl cursor.com/install && cursor-agent login"
 
     def model_flags(self, bare: str, full: str) -> list[str]:
         return ["--model", full]
+
+    def parse_native(self, obj: dict[str, Any]) -> dict[str, Any] | None:
+        typ = obj.get("type")
+        if typ == "result":
+            ev: dict[str, Any] = {
+                "ts": None,
+                "event": "final",
+                "text": str(obj.get("result", ""))[:2000],
+                "usage": estimate_text_usage(str(obj.get("result", ""))),
+                "usage_estimated": True,
+            }
+            if obj.get("model"):
+                ev["model"] = str(obj["model"])
+            return ev
+        if typ in ("tool_call", "tool_resolved"):
+            tool = str(obj.get("tool") or obj.get("name") or "tool")
+            return {
+                "ts": None,
+                "event": "tool",
+                "tool": _canonical_tool(tool),
+                "text": tool[:200],
+                "usage": {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0},
+            }
+        if typ == "error":
+            err = str(obj.get("error") or obj.get("message") or "unknown")
+            return {
+                "ts": None,
+                "event": "log",
+                "text": f"[error] {err}"[:2000],
+                "usage": estimate_text_usage(err),
+                "usage_estimated": True,
+            }
+        return None
 
 
 class Droid(CLIHarness):
@@ -472,20 +581,51 @@ class Droid(CLIHarness):
     binary = "droid"
     version_cmd = ["droid", "--version"]
     prompt_mode = "argv"
-    cmd_template = ["droid", "exec", "full-auto"]
+    # Probed against droid 0.225.2: `droid exec full-auto` is not a valid
+    # subcommand; autonomy is --auto <low|medium|high> and native events need
+    # -o stream-json. The init event names the effective model (SPEC 5.5).
+    cmd_template = ["droid", "exec", "-o", "stream-json", "--auto", "medium"]
     profile = HarnessProfile(
-        approval_flags=["full-auto"],
+        approval_flags=["--auto medium (autonomous file edits + commands; no network)"],
         plan_first=False,
-        transcript_fidelity="stdout",
-        backends=["local", "docker"],
+        transcript_fidelity="native",
+        backends=["local"],
         auth_env=["FACTORY_API_KEY"],
         model_families=[],  # multi-provider
-        notes="factory droid exec; full-auto approval; model via -m/--model",
+        notes="droid exec stream-json (0.22x schema); native init event reports the "
+        "effective model; model via -m/--model",
     )
-    missing_hint = "curl -fsSL https://app.factory.ai/cli | sh"
+    missing_hint = "curl -fsSL https://app.factory.ai/cli | sh && droid exec login"
 
     def model_flags(self, bare: str, full: str) -> list[str]:
         return ["-m", full]
+
+    def parse_native(self, obj: dict[str, Any]) -> dict[str, Any] | None:
+        typ = obj.get("type")
+        if typ == "system":
+            ev: dict[str, Any] = {
+                "ts": None,
+                "event": "log",
+                "text": f"init tools={len(obj.get('tools', []) or [])}"[:200],
+                "usage": {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0},
+            }
+            if obj.get("model"):
+                ev["model"] = str(obj["model"])
+            return ev
+        data = obj.get("data")
+        if not isinstance(data, dict):
+            data = obj
+        dtype = data.get("type")
+        if dtype == "error" or (typ == "error"):
+            err = str(data.get("message") or obj.get("message") or "unknown")
+            return {
+                "ts": None,
+                "event": "log",
+                "text": f"[error] {err}"[:2000],
+                "usage": estimate_text_usage(err),
+                "usage_estimated": True,
+            }
+        return None
 
 
 class GeminiCli(CLIHarness):
@@ -556,8 +696,72 @@ class Goose(CLIHarness):
     )
     missing_hint = "curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh | bash"
 
+    def available(self) -> bool:
+        if not shutil.which(self.binary):
+            return False
+        # goose needs a configured provider: its config file or a provider key.
+        for cfg in (Path.home() / ".config" / "goose" / "config.yaml",):
+            if cfg.exists():
+                return True
+        return any(os.environ.get(v) for v in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"))
+
+    def missing_reason(self) -> str:
+        if not shutil.which(self.binary):
+            return f"binary {self.binary!r} not on PATH" + (
+                f" ({self.missing_hint})" if self.missing_hint else ""
+            )
+        if self.available():
+            return ""
+        return "no provider configured (run: goose configure, or set OPENAI_API_KEY)"
+
     def model_flags(self, bare: str, full: str) -> list[str]:
         return ["--model", full]
+
+
+class PrimeAgent(CLIHarness):
+    """Prime Intellect's RLM harness (probed against 0.9.1).
+
+    Headless contract: `prime-agent -p --mode json` with the prompt as a
+    positional argument. Provider auth lives in prime-agent's own login store
+    (no env var contract), so available() checks the store instead.
+    """
+
+    name = "prime-agent"
+    binary = "prime-agent"
+    version_cmd = ["prime-agent", "--version"]
+    prompt_mode = "argv"
+    cmd_template = ["prime-agent", "--print", "--mode", "json", "--no-session"]
+    profile = HarnessProfile(
+        approval_flags=["--print (non-interactive; tool use auto-approved in print mode)"],
+        plan_first=False,
+        transcript_fidelity="stdout",
+        backends=["local"],
+        auth_env=[],  # provider login is prime-agent's own stored credential
+        model_families=[],  # multi-provider
+        notes="Prime Intellect RLM harness; JSON print mode; model via --model; "
+        "auth via prime-agent /login (OAuth or API key)",
+    )
+    missing_hint = "npm i -g prime-agent && prime-agent (then /login)"
+
+    def model_flags(self, bare: str, full: str) -> list[str]:
+        return ["--model", bare]
+
+    def available(self) -> bool:
+        if not shutil.which(self.binary):
+            return False
+        if os.environ.get("PRIME_API_KEY"):
+            return True
+        home = Path.home()
+        return any(store.is_dir() for store in (home / ".config" / "prime-agent", home / ".prime-agent"))
+
+    def missing_reason(self) -> str:
+        if not shutil.which(self.binary):
+            return f"binary {self.binary!r} not on PATH" + (
+                f" ({self.missing_hint})" if self.missing_hint else ""
+            )
+        if self.available():
+            return ""
+        return "no provider login (run: prime-agent, then /login)"
 
 
 ALL: list[type[CLIHarness]] = [
@@ -569,4 +773,5 @@ ALL: list[type[CLIHarness]] = [
     GeminiCli,
     Aider,
     Goose,
+    PrimeAgent,
 ]

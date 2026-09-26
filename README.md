@@ -85,7 +85,7 @@ cbench run --harness codex --model openai/gpt-5.3 --suite suite/ --seeds 3
 cbench score runs/<run-dir>
 ```
 
-**Available adapters:** `mock-a`, `mock-b` (self-test), `claude-code`, `codex`, `opencode`, `cursor-agent`, `droid`, `gemini`, `aider`, `goose`. See [docs/adding-a-harness.md](docs/adding-a-harness.md) to add yours.
+**Available adapters:** `mock-a`, `mock-b` (self-test), `claude-code`, `codex`, `opencode`, `cursor-agent`, `droid`, `gemini`, `aider`, `goose`, `prime-agent`. See [docs/adding-a-harness.md](docs/adding-a-harness.md) to add yours.
 
 **Backends:** `--backend local` (default, sandboxed temp dirs, works on macOS/Linux) or `--backend docker` (specified, **not yet implemented** — the CLI refuses with an explicit error).
 
