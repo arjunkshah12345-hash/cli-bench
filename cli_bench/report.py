@@ -10,7 +10,7 @@ from typing import Any
 from cli_bench.scoring import RunGroup, load_run_group, render_table, score_group
 
 
-def build_report(run_paths: list[Path], envelope_factor: float = 0.5) -> dict[str, Any]:
+def build_report(run_paths: list[Path], envelope_factor: float = 1.0) -> dict[str, Any]:
     scored_runs = []
     for p in run_paths:
         group: RunGroup = load_run_group(Path(p))
@@ -29,27 +29,60 @@ def build_report(run_paths: list[Path], envelope_factor: float = 0.5) -> dict[st
                     "cb_hdr": [],
                     "hdr": [],
                     "hdr_c": [],
-                    "cost_usd": [],
-                    "tokens": [],
-                    "duration_s": [],
+                    "scored_passes": [],
+                    "scored_trials": [],
+                    "houdini_passes": [],
+                    "houdini_trials": [],
+                    "mean_cost_usd_per_trial": [],
+                    "total_cost_usd": [],
+                    "mean_effective_tokens_per_trial": [],
+                    "total_effective_tokens": [],
+                    "mean_duration_s_per_trial": [],
+                    "p50_duration_s": [],
                 },
             )
             h["runs"].append(sr["run_id"])
-            for key in ("cb_hdr", "hdr", "hdr_c", "cost_usd", "tokens", "duration_s"):
+            for key in (
+                "cb_hdr",
+                "hdr",
+                "hdr_c",
+                "mean_cost_usd_per_trial",
+                "mean_effective_tokens_per_trial",
+                "mean_duration_s_per_trial",
+                "p50_duration_s",
+            ):
+                h[key].append(row[key])
+            for key in (
+                "scored_passes",
+                "scored_trials",
+                "houdini_passes",
+                "houdini_trials",
+                "total_cost_usd",
+                "total_effective_tokens",
+            ):
+                h[key] = h.get(key, [])
                 h[key].append(row[key])
 
     harness_rows = []
     for h in agg.values():
         mean = lambda xs: round(sum(xs) / len(xs), 4) if xs else 0.0  # noqa: E731
+        total = lambda xs: round(sum(xs), 4) if xs else 0.0  # noqa: E731
         harness_rows.append(
             {
                 "harness": h["harness"],
                 "cb_hdr": mean(h["cb_hdr"]),
                 "hdr": mean(h["hdr"]),
                 "hdr_c": mean(h["hdr_c"]),
-                "cost_usd": mean(h["cost_usd"]),
-                "tokens": int(mean(h["tokens"])),
-                "duration_s": mean(h["duration_s"]),
+                "scored_passes": int(total(h["scored_passes"])),
+                "scored_trials": int(total(h["scored_trials"])),
+                "houdini_passes": int(total(h["houdini_passes"])),
+                "houdini_trials": int(total(h["houdini_trials"])),
+                "mean_cost_usd_per_trial": mean(h["mean_cost_usd_per_trial"]),
+                "total_cost_usd": total(h["total_cost_usd"]),
+                "mean_effective_tokens_per_trial": int(mean(h["mean_effective_tokens_per_trial"])),
+                "total_effective_tokens": int(total(h["total_effective_tokens"])),
+                "mean_duration_s_per_trial": mean(h["mean_duration_s_per_trial"]),
+                "p50_duration_s": mean(h["p50_duration_s"]),
                 "runs": h["runs"],
             }
         )
@@ -69,7 +102,7 @@ def build_report(run_paths: list[Path], envelope_factor: float = 0.5) -> dict[st
 
 
 def write_report(
-    run_paths: list[Path], out_json: Path, out_md: Path | None = None, envelope_factor: float = 0.5
+    run_paths: list[Path], out_json: Path, out_md: Path | None = None, envelope_factor: float = 1.0
 ) -> dict[str, Any]:
     report = build_report(run_paths, envelope_factor=envelope_factor)
     out_json.parent.mkdir(parents=True, exist_ok=True)

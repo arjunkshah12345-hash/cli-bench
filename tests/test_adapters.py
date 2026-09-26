@@ -1,6 +1,7 @@
 """Tests for the harness registry and adapters."""
 
 import shutil
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -241,6 +242,91 @@ def test_available_when_env_present(monkeypatch):
     codex = get_harness("codex")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     assert codex.available() is True
+
+
+def test_cursor_subscription_login_detected(monkeypatch, tmp_path):
+    """Regression: cursor-agent login (subscription) must satisfy availability.
+
+    The adapter previously only checked CURSOR_API_KEY, so a fully logged-in
+    subscription user was reported unavailable. Auth now also reads the CLI's
+    own credential store (~/.cursor/cli-config.json authInfo.userId).
+    """
+    import json as _json
+
+    fake_home = tmp_path / "home"
+    cursor_dir = fake_home / ".cursor"
+    cursor_dir.mkdir(parents=True)
+    (cursor_dir / "cli-config.json").write_text(
+        _json.dumps({"authInfo": {"userId": "u123", "email": "x@y.z"}}), encoding="utf-8"
+    )
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
+    monkeypatch.setattr(
+        shutil, "which", lambda name: "/usr/bin/cursor-agent" if name == "cursor-agent" else None
+    )
+    monkeypatch.delenv("CURSOR_API_KEY", raising=False)
+    cursor = get_harness("cursor-agent")
+    assert cursor.available() is True
+    assert cursor.missing_reason() == ""
+
+    # No authInfo, no env key → unavailable, with an actionable hint.
+    (cursor_dir / "cli-config.json").write_text(_json.dumps({"authInfo": {}}), encoding="utf-8")
+    assert cursor.available() is False
+    assert "cursor-agent login" in cursor.missing_reason()
+
+
+def test_cursor_cmd_includes_trust_flag():
+    """--trust must precede the prompt: headless print mode exits 0 with no
+    output in an untrusted workspace (the trust prompt needs a TTY)."""
+    cursor = get_harness("cursor-agent")
+    assert "--trust" in cursor.cmd_template
+    assert cursor.cmd_template.index("--trust") < len(cursor.cmd_template) - 1
+
+
+def test_score_row_schema_separates_scored_and_houdini():
+    """Regression: 'passed'/'trials' once mixed Houdini probes into the pass
+    rate (35/48 = 72.9% vs the true 23/36 = 63.9%). The schema now separates
+    scored and probe counts and disambiguates per-trial vs total quantities.
+    """
+    import statistics as _statistics
+
+    from cli_bench.scoring import RunGroup, Trial, score_group
+
+    trials = [
+        Trial("h", "task/a", seed, "pass", spend=100, duration_s=10.0, cost_usd=0.01) for seed in range(3)
+    ]
+    trials += [
+        Trial("h", "houdini/x", seed, "pass", spend=50, duration_s=5.0, cost_usd=0.005) for seed in range(3)
+    ]
+    group = RunGroup(
+        run_id="t",
+        path=Path("."),
+        model="m",
+        suite_version="s",
+        backend="local",
+        created="",
+        task_meta={"task/a": {"weight": 1.0}, "houdini/x": {"weight": 1.0}},
+    )
+    group.trials = trials
+    row = score_group(group)["leaderboard"][0]
+    assert row["scored_passes"] == 3 and row["scored_trials"] == 3
+    assert row["houdini_passes"] == 3 and row["houdini_trials"] == 3
+    assert row["total_trials"] == 6
+    # mean vs total must be distinct fields with distinct values
+    assert row["mean_cost_usd_per_trial"] * row["total_trials"] == row["total_cost_usd"]
+    assert row["mean_duration_s_per_trial"] == _statistics.mean([10.0] * 3 + [5.0] * 3)
+    assert row["p50_duration_s"] == _statistics.median([10.0] * 3 + [5.0] * 3)
+
+
+def test_report_defaults_match_published_methodology():
+    """cbench score and cbench report must share envelope_factor=1.0 — a 0.5
+    default in report.py once made the two disagree for multi-harness groups."""
+    import inspect
+
+    from cli_bench import report
+
+    assert inspect.signature(report.build_report).parameters["envelope_factor"].default == 1.0
+    assert inspect.signature(report.write_report).parameters["envelope_factor"].default == 1.0
 
 
 def test_versions_do_not_crash():

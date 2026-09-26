@@ -527,40 +527,89 @@ class CursorAgent(CLIHarness):
     binary = "cursor-agent"
     version_cmd = ["cursor-agent", "--version"]
     prompt_mode = "argv"
-    cmd_template = ["cursor-agent", "-p", "--output-format", "stream-json", "--force"]
+    # Probed against 2026.09.26: -p is headless print mode; --trust pre-accepts
+    # the workspace-trust prompt (headless --print cannot show it — without a
+    # trusted workspace the process exits 0 with no output at all); --force
+    # auto-approves tool calls. The init event names the effective model and
+    # the result event carries native usage (SPEC 5.5).
+    cmd_template = ["cursor-agent", "-p", "--trust", "--force"]
     profile = HarnessProfile(
-        approval_flags=["--force"],
+        approval_flags=["--trust (workspace trust pre-accepted)", "--force (tool auto-approval)"],
         plan_first=False,
         transcript_fidelity="native",
-        backends=["local", "docker"],
+        backends=["local"],
         auth_env=["CURSOR_API_KEY"],
-        model_families=[],  # multi-provider
-        notes="headless stream-json print mode; --force auto-approves; model via --model",
+        model_families=[],  # multi-provider via Cursor's routing
+        notes="headless stream-json print mode; --trust skips the workspace-trust "
+        "prompt that silently kills unattended runs; --force auto-approves; "
+        "model via --model (init event proves the effective model, SPEC 5.5)",
     )
     missing_hint = "curl cursor.com/install && cursor-agent login"
 
+    def available(self) -> bool:
+        """CURSOR_API_KEY, or the CLI's own subscription login (cli-config authInfo)."""
+        if not shutil.which(self.binary):
+            return False
+        if os.environ.get("CURSOR_API_KEY"):
+            return True
+        cfg = Path.home() / ".cursor" / "cli-config.json"
+        try:
+            auth = (json.loads(cfg.read_text(encoding="utf-8")) or {}).get("authInfo") or {}
+        except (OSError, json.JSONDecodeError):
+            return False
+        return bool(auth.get("userId"))
+
+    def missing_reason(self) -> str:
+        if not shutil.which(self.binary):
+            return f"binary {self.binary!r} not on PATH" + (" (curl cursor.com/install)")
+        if self.available():
+            return ""
+        return "no CURSOR_API_KEY and no subscription login (run: cursor-agent login)"
+
     def model_flags(self, bare: str, full: str) -> list[str]:
-        return ["--model", full]
+        # Probed: bare cursor slug ("gpt-5.6-luna" → init model "GPT-5.6 Luna").
+        return ["--model", bare]
 
     def parse_native(self, obj: dict[str, Any]) -> dict[str, Any] | None:
         typ = obj.get("type")
-        if typ == "result":
+        if typ == "system":
             ev: dict[str, Any] = {
                 "ts": None,
-                "event": "final",
-                "text": str(obj.get("result", ""))[:2000],
-                "usage": estimate_text_usage(str(obj.get("result", ""))),
-                "usage_estimated": True,
+                "event": "log",
+                "text": f"init model={obj.get('model', '')}"[:200],
+                "usage": {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0},
             }
             if obj.get("model"):
                 ev["model"] = str(obj["model"])
             return ev
-        if typ in ("tool_call", "tool_resolved"):
-            tool = str(obj.get("tool") or obj.get("name") or "tool")
+        if typ == "result":
+            u = obj.get("usage")
+            if not isinstance(u, dict):
+                u = {}
+            return {
+                "ts": None,
+                "event": "final",
+                "text": str(obj.get("result", ""))[:2000],
+                "usage": {
+                    "input_tokens": u.get("inputTokens", 0) or 0,
+                    "output_tokens": u.get("outputTokens", 0) or 0,
+                    "reasoning_tokens": 0,
+                    "cached_tokens": u.get("cacheReadTokens", 0) or 0,
+                },
+                "usage_estimated": False,
+            }
+        if typ == "tool_call":
+            call = obj.get("tool_call")
+            if not isinstance(call, dict):
+                call = {}
+            shell = call.get("shellToolCall")
+            if not isinstance(shell, dict):
+                shell = {}
+            tool = str(shell.get("command", "") or "edit")
             return {
                 "ts": None,
                 "event": "tool",
-                "tool": _canonical_tool(tool),
+                "tool": _canonical_tool("bash" if shell else "edit"),
                 "text": tool[:200],
                 "usage": {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "cached_tokens": 0},
             }
@@ -573,6 +622,7 @@ class CursorAgent(CLIHarness):
                 "usage": estimate_text_usage(err),
                 "usage_estimated": True,
             }
+        # user / assistant / thinking events: informative but not load-bearing.
         return None
 
 

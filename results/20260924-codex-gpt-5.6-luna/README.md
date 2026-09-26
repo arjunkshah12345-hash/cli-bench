@@ -17,7 +17,7 @@ repository's runner + verifier + scoring pipeline from raw artifacts in
   gate evidence committed under `runs/codex/houdini__*`
 - **Auth:** ChatGPT Plus subscription (codex login); pricing from pinned table 1.0.0
   ($0.20 / $0.02 cached / $1.20 per 1M tokens)
-- **Total spend:** $1.38 for the full batch
+- **Total spend:** $1.38 across the 36 scored trials ($1.72 including the 12 Houdini probe trials)
 
 ## Headline
 
@@ -104,13 +104,19 @@ roughly $1.40 at current gpt-5.6-luna pricing. Raw artifacts: [`runs/`](./runs/)
   "cb_hdr": 0.592,
   "ci95": [0.3008, 0.8601],
   "hdr": 0.5833,
-  "passed": 23,
-  "trials": 48,
+  "scored_passes": 23,
+  "scored_trials": 36,
+  "houdini_passes": 12,
+  "houdini_trials": 12,
+  "total_trials": 48,
   "houdini_gate": "pass",
   "houdini_probes": 12,
-  "cost_usd": 0.036,
-  "tokens": 163376,
-  "duration_s": 83.0,
+  "mean_cost_usd_per_trial": 0.0359,
+  "total_cost_usd": 1.7227,
+  "mean_effective_tokens_per_trial": 163376,
+  "total_effective_tokens": 7842088,
+  "mean_duration_s_per_trial": 82.96,
+  "p50_duration_s": 68.78,
   "sabotage": 0,
   "budget_outs": 0,
   "crashes": 0

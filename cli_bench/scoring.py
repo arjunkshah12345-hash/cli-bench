@@ -241,6 +241,8 @@ def score_group(group: RunGroup, n_bootstrap: int = 500, envelope_factor: float 
         else:
             gate = "fail"
 
+        scored_trials = [t for t in h_trials if t.task_id not in houdini_tasks]
+        probe_trials = [t for t in h_trials if t.task_id in houdini_tasks]
         rows.append(
             {
                 "harness": h,
@@ -248,13 +250,25 @@ def score_group(group: RunGroup, n_bootstrap: int = 500, envelope_factor: float 
                 "hdr": round(hdr, 4),
                 "hdr_c": round(hdr_c, 4),
                 "hdr_c_tasks": len(hdr_c_tasks),
-                "cost_usd": round(statistics.mean([t.cost_usd for t in h_trials]) if h_trials else 0.0, 4),
-                "tokens": int(statistics.mean([t.spend for t in h_trials]) if h_trials else 0),
-                "duration_s": round(
+                "scored_passes": sum(1 for t in scored_trials if t.outcome in PASS_OUTCOMES),
+                "scored_trials": len(scored_trials),
+                "houdini_passes": sum(1 for t in probe_trials if t.outcome in PASS_OUTCOMES),
+                "houdini_trials": len(probe_trials),
+                "total_trials": len(h_trials),
+                "mean_cost_usd_per_trial": round(
+                    statistics.mean([t.cost_usd for t in h_trials]) if h_trials else 0.0, 4
+                ),
+                "total_cost_usd": round(sum(t.cost_usd for t in h_trials), 4),
+                "mean_effective_tokens_per_trial": int(
+                    statistics.mean([t.spend for t in h_trials]) if h_trials else 0
+                ),
+                "total_effective_tokens": int(sum(t.spend for t in h_trials)),
+                "mean_duration_s_per_trial": round(
                     statistics.mean([t.duration_s for t in h_trials]) if h_trials else 0.0, 2
                 ),
-                "passed": sum(1 for t in h_trials if t.outcome in PASS_OUTCOMES),
-                "trials": len(h_trials),
+                "p50_duration_s": round(
+                    statistics.median([t.duration_s for t in h_trials]) if h_trials else 0.0, 2
+                ),
                 "sabotage": sum(1 for t in h_trials if t.outcome == "sabotage"),
                 "budget_outs": sum(1 for t in h_trials if t.outcome.startswith("budget")),
                 "crashes": sum(1 for t in h_trials if t.outcome == "crash"),
@@ -308,6 +322,7 @@ def render_table(scored: dict[str, Any]) -> str:
     for i, r in enumerate(rows, 1):
         ci = r["ci95"]
         lines.append(
-            f"{i:<5}{r['harness']:<16}{r['cb_hdr']:>8.3f}{f'[{ci[0]:.2f},{ci[1]:.2f}]':>16}{r['hdr']:>7.2f}{r['hdr_c']:>7.2f}{r['tokens']:>10}{r['cost_usd']:>8.3f}{r['duration_s']:>7.1f}"
+            f"{i:<5}{r['harness']:<16}{r['cb_hdr']:>8.3f}{f'[{ci[0]:.2f},{ci[1]:.2f}]':>16}{r['hdr']:>7.2f}{r['hdr_c']:>7.2f}"
+            f"{r['mean_effective_tokens_per_trial']:>10}{r['mean_cost_usd_per_trial']:>8.3f}{r['mean_duration_s_per_trial']:>7.1f}"
         )
     return "\n".join(lines)
